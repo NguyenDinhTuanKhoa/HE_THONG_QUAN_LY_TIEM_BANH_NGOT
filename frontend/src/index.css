@@ -1,103 +1,320 @@
-/* 1. Thiết lập cơ sở chung */
-html {
-  font-size: 16px; /* 1rem = 16px */
-  scroll-behavior: smooth; /* Tạo hiệu ứng cuộn mượt */
+/* ─────────────────────────────────────────────────────────────────
+   Sweet Bakery — Global Design System
+   ───────────────────────────────────────────────────────────────── */
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
+/* ── Design Tokens ─────────────────────────────────────────────── */
+:root {
+  /* Brand */
+  --color-primary:       #F8A5C2;
+  --color-primary-dark:  #FF85A2;
+  --color-primary-light: #fce8f1;
+  --color-primary-pale:  #fff5f9;
+
+  /* Neutrals */
+  --color-text:          #1f2937;
+  --color-text-muted:    #6b7280;
+  --color-text-light:    #9ca3af;
+  --color-bg:            #f9fafb;
+  --color-surface:       #ffffff;
+  --color-border:        #e5e7eb;
+  --color-border-light:  #f3f4f6;
+
+  /* Accents */
+  --color-success:  #10b981;
+  --color-warning:  #f59e0b;
+  --color-error:    #ef4444;
+  --color-info:     #3b82f6;
+
+  /* Shadows */
+  --shadow-xs:   0 1px 3px rgba(0,0,0,.06);
+  --shadow-sm:   0 2px 8px  rgba(0,0,0,.08);
+  --shadow-md:   0 4px 20px rgba(0,0,0,.10);
+  --shadow-lg:   0 10px 40px rgba(0,0,0,.12);
+  --shadow-pink: 0 8px 30px rgba(248,165,194,.40);
+
+  /* Radius */
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --t-fast:  .15s ease;
+  --t-base:  .25s ease;
+  --t-slow:  .40s ease;
+
+  /* Typography */
+  --font-body:    'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Playfair Display', Georgia, serif;
+
+  /* Z-index scale */
+  --z-header:  1000;
+  --z-overlay: 2000;
+  --z-toast:   9999;
 }
 
-/* 2. Thiết lập box-sizing toàn cục */
+/* ── Reset ─────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ── Body ──────────────────────────────────────────────────────── */
 body {
-  font-family: Arial, sans-serif;
-  font-size: 1rem; /* Dùng rem cho font-size */
-  line-height: 1.5;
-  color: var(--text-color, #333); /* Dùng biến CSS để quản lý màu */
-  background-color: var(--background-color, #f4f4f4);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* 3. Thiết lập CSS Variables cho các giá trị màu sắc và kích thước cơ bản */
-:root {
-  --primary-color: #007bff;
-  --secondary-color: #6c757d;
-  --accent-color: #28a745;
-  --background-color: #f4f4f4;
-  --text-color: #333;
-  --base-spacing: 1rem; /* Dễ dàng điều chỉnh khoảng cách chung */
-}
+/* ── Custom Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar               { width: 6px; height: 6px; }
+::-webkit-scrollbar-track         { background: var(--color-border-light); }
+::-webkit-scrollbar-thumb         { background: var(--color-primary); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover   { background: var(--color-primary-dark); }
 
-/* 4. Phần tử tiêu chuẩn */
+/* ── Typography ────────────────────────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {
-  margin-bottom: var(--base-spacing);
-  font-weight: normal;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--color-text);
 }
+h1 { font-size: clamp(1.75rem, 5vw, 2.75rem); }
+h2 { font-size: clamp(1.5rem,  4vw, 2.25rem); }
+h3 { font-size: clamp(1.25rem, 3vw, 1.75rem); }
+h4 { font-size: 1.125rem; }
 
-h1 {
-  font-size: 2rem; /* 32px */
-}
-
-h2 {
-  font-size: 1.75rem; /* 28px */
-}
-
-/* 5. Các phần tử dùng cho layout và container */
-.container {
-  width: 100%;
-  padding: var(--base-spacing);
-  margin: 0 auto;
-  max-width: 1200px; /* Tối đa chiều rộng */
-}
-
-/* 6. Các thành phần Button, Link */
-.button {
-  display: inline-block;
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem; /* Dùng rem cho font-size */
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.button:hover {
-  background-color: var(--accent-color);
+p {
+  line-height: 1.7;
+  color: var(--color-text-muted);
 }
 
 a {
-  color: var(--primary-color);
+  color: var(--color-primary-dark);
   text-decoration: none;
+  transition: color var(--t-fast);
+}
+a:hover { color: var(--color-primary); }
+
+img, video { max-width: 100%; display: block; }
+
+button, input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
 }
 
-a:hover {
-  text-decoration: underline;
+/* ── Utility classes ───────────────────────────────────────────── */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 4vw, 24px);
 }
 
-/* 7. Các đoạn văn bản */
-p {
-  font-size: 1rem; /* 16px */
-  line-height: 1.5;
-  margin-bottom: var(--base-spacing);
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
-/* 8. Animations */
+/* Focus visible outline (accessibility) */
+:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Animations ────────────────────────────────────────────────── */
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
 
-/* 9. Thiết lập Media Queries cho Responsive */
-@media (max-width: 768px) {
-  .container {
-    padding: var(--base-spacing);
-  }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 
-  .button {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem; /* 14px */
-  }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.05); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -468px 0; }
+  100% { background-position:  468px 0; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+/* ── Animation utility classes ─────────────────────────────────── */
+.animate-fadeIn      { animation: fadeIn      .4s ease both; }
+.animate-slideUp     { animation: slideUp     .5s ease both; }
+.animate-slideDown   { animation: slideDown   .3s ease both; }
+.animate-slideInRight{ animation: slideInRight .4s ease both; }
+.animate-spin        { animation: spin        1s linear infinite; }
+.animate-pulse       { animation: pulse       2s ease-in-out infinite; }
+.animate-bounce      { animation: bounce      1.5s ease-in-out infinite; }
+
+/* Stagger helpers */
+.stagger-1 { animation-delay: .1s; }
+.stagger-2 { animation-delay: .2s; }
+.stagger-3 { animation-delay: .3s; }
+.stagger-4 { animation-delay: .4s; }
+
+/* ── Card & Surface ────────────────────────────────────────────── */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--t-base), transform var(--t-base);
+}
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-4px);
+}
+
+/* ── Button base ───────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: .75rem 1.5rem;
+  border-radius: var(--radius-full);
+  border: none;
+  font-size: .9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--t-base);
+  text-decoration: none;
+  user-select: none;
+}
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(248,165,194,.35);
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-pink);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--color-primary-dark);
+  border: 2px solid var(--color-primary);
+}
+.btn-outline:hover {
+  background: var(--color-primary-pale);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+.btn-ghost:hover {
+  background: var(--color-border-light);
+  color: var(--color-text);
+}
+
+/* ── Badge ─────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.badge-new  { background: #10b981; color: #fff; }
+.badge-hot  { background: #ef4444; color: #fff; }
+.badge-sale { background: #f59e0b; color: #fff; }
+
+/* ── Form inputs ───────────────────────────────────────────────── */
+.input {
+  width: 100%;
+  padding: .875rem 1rem;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  outline: none;
+}
+.input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(248,165,194,.2);
+}
+.input.error { border-color: var(--color-error); }
+
+/* ── Divider ───────────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: var(--color-border-light);
+  margin: 1rem 0;
+}
+
+/* ── Toast (override z-index) ──────────────────────────────────── */
+#toast-root { z-index: var(--z-toast); }
+
+/* ── Responsive Media Queries ──────────────────────────────────── */
+@media (max-width: 1024px) {
+  :root { --base-spacing: .875rem; }
+}
+
+@media (max-width: 768px) {
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.4rem; }
+  h3 { font-size: 1.2rem; }
+}
+
+@media (max-width: 480px) {
+  html { font-size: 15px; }
+}
+
+/* ── Print ─────────────────────────────────────────────────────── */
+@media print {
+  header, footer, nav { display: none; }
+  body { background: #fff; color: #000; }
 }

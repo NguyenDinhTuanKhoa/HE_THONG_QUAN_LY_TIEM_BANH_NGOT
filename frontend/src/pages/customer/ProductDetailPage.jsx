@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import CustomerHeader from '../../components/customer/Header';
 import { useCart } from '../../context/CartContext';
+import { useToast } from '../../components/common/Toast';
 
 const ProductDetailPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { addToCart } = useCart();
+  const toast = useToast();
   const [product, setProduct] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -23,18 +26,24 @@ const ProductDetailPage = () => {
     const foundProduct = savedProducts.find(p => p.id.toString() === id);
 
     if (foundProduct && foundProduct.status === 'available') {
-      setProduct(foundProduct);
+      // Normalize product to always have images array
+      setProduct({
+        ...foundProduct,
+        images: foundProduct.images?.length ? foundProduct.images : [foundProduct.image || 'https://via.placeholder.com/500x500?text=No+Image'],
+        ingredients: foundProduct.ingredients || [],
+        nutritionFacts: foundProduct.nutritionFacts || {},
+      });
     } else {
-      // If no real product found, use mock data for demo
       const mockProduct = {
         id: parseInt(id),
         name: 'Bánh kem dâu tây',
         price: 250000,
         originalPrice: 300000,
         category: 'cake',
-        image: 'https://via.placeholder.com/500x500?text=Bánh+kem+dâu',
+        images: ['https://via.placeholder.com/500x500?text=Bánh+kem+dâu'],
         description: 'Bánh kem tươi với dâu tây tự nhiên, được làm từ kem tươi cao cấp và dâu tây nhập khẩu. Lớp bánh bông lan mềm mịn kết hợp với kem tươi béo ngậy và dâu tây chua ngọt tạo nên hương vị tuyệt vời.',
-
+        ingredients: ['Bột mì', 'Trứng', 'Đường', 'Kem tươi', 'Dâu tây'],
+        nutritionFacts: { calories: '320 kcal', protein: '5g', carbs: '42g', fat: '15g' },
         stock: 15,
         status: 'available',
         isNew: true,
@@ -88,20 +97,15 @@ const ProductDetailPage = () => {
   };
 
   const handleAddToCart = () => {
-    console.log('Add to cart clicked!', product, quantity);
     if (product) {
       addToCart(product, quantity);
-      alert(`Đã thêm ${quantity} ${product.name} vào giỏ hàng!`);
     }
   };
 
   const handleBuyNow = () => {
-    console.log('Buy now clicked!', product, quantity);
     if (product) {
       addToCart(product, quantity);
-      alert(`Đã thêm ${quantity} ${product.name} vào giỏ hàng! Chuyển đến giỏ hàng...`);
-      // Navigate to cart page
-      window.location.href = '/cart';
+      navigate('/cart');
     }
   };
 
@@ -430,10 +434,7 @@ const ProductDetailPage = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button
                   style={quantityButtonStyle}
-                  onClick={() => {
-                    console.log('Decrease quantity clicked!');
-                    setQuantity(Math.max(1, quantity - 1));
-                  }}
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
                 >
                   -
                 </button>
@@ -447,10 +448,7 @@ const ProductDetailPage = () => {
                 />
                 <button
                   style={quantityButtonStyle}
-                  onClick={() => {
-                    console.log('Increase quantity clicked!');
-                    setQuantity(Math.min(product.stock || 999, quantity + 1));
-                  }}
+                  onClick={() => setQuantity(Math.min(product.stock || 999, quantity + 1))}
                 >
                   +
                 </button>
@@ -495,28 +493,19 @@ const ProductDetailPage = () => {
           <div style={tabHeaderStyle}>
             <button
               style={tabButtonStyle(activeTab === 'description')}
-              onClick={() => {
-                console.log('Description tab clicked!');
-                setActiveTab('description');
-              }}
+              onClick={() => setActiveTab('description')}
             >
               Mô tả chi tiết
             </button>
             <button
               style={tabButtonStyle(activeTab === 'ingredients')}
-              onClick={() => {
-                console.log('Ingredients tab clicked!');
-                setActiveTab('ingredients');
-              }}
+              onClick={() => setActiveTab('ingredients')}
             >
               Thành phần
             </button>
             <button
               style={tabButtonStyle(activeTab === 'nutrition')}
-              onClick={() => {
-                console.log('Nutrition tab clicked!');
-                setActiveTab('nutrition');
-              }}
+              onClick={() => setActiveTab('nutrition')}
             >
               Dinh dưỡng
             </button>

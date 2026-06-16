@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import CustomerHeader from '../../components/customer/Header';
 import apiService from '../../services/api';
+import { useToast } from '../../components/common/Toast';
 
 const CustomerLoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     email: '',
@@ -128,7 +130,7 @@ const CustomerLoginPage = () => {
           phone: formData.phone,
         });
         localStorage.setItem('customer', JSON.stringify({ ...response.customer, token: response.token }));
-        alert(response.message || 'Đăng ký thành công!');
+        toast.success(response.message || 'Đăng ký thành công!');
         const from = location.state?.from?.pathname || '/';
         navigate(from, { replace: true });
         return;
@@ -144,7 +146,7 @@ const CustomerLoginPage = () => {
         // Đăng nhập admin/nhân viên thành công
         localStorage.removeItem('customer'); // tránh lẫn phiên khách hàng
         localStorage.setItem('user', JSON.stringify({ ...adminRes.user, token: adminRes.token }));
-        alert('Đăng nhập thành công!');
+        toast.success('Đăng nhập thành công!');
         navigate(getAdminRedirect(adminRes.user.role), { replace: true });
         return;
       } catch (adminErr) {
@@ -158,11 +160,11 @@ const CustomerLoginPage = () => {
       });
       localStorage.removeItem('user'); // tránh lẫn phiên admin
       localStorage.setItem('customer', JSON.stringify({ ...custRes.customer, token: custRes.token }));
-      alert('Đăng nhập thành công!');
+      toast.success('Đăng nhập thành công!');
       const from = location.state?.from?.pathname || '/';
       navigate(from, { replace: true });
     } catch (error) {
-      alert(error.message || 'Email hoặc mật khẩu không đúng!');
+      toast.error(error.message || 'Email hoặc mật khẩu không đúng!');
     } finally {
       setIsLoading(false);
     }
@@ -172,7 +174,7 @@ const CustomerLoginPage = () => {
 
   const containerStyle = {
     minHeight: '100vh',
-    backgroundColor: '#f9fafb',
+    background: 'linear-gradient(160deg, #fff5f9 0%, #f9fafb 60%, #fff0f5 100%)',
   };
 
   const mainStyle = {
@@ -183,18 +185,20 @@ const CustomerLoginPage = () => {
 
   const cardStyle = {
     backgroundColor: '#fff',
-    borderRadius: '16px',
+    borderRadius: '24px',
     padding: '40px',
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
+    boxShadow: '0 16px 48px rgba(248,165,194,.15), 0 4px 16px rgba(0,0,0,.06)',
     marginTop: '40px',
+    border: '1px solid rgba(248,165,194,.15)',
   };
 
   const titleStyle = {
-    fontSize: '28px',
-    fontWeight: 'bold',
+    fontSize: '30px',
+    fontWeight: '700',
     color: '#1f2937',
     textAlign: 'center',
     marginBottom: '8px',
+    fontFamily: "'Playfair Display', Georgia, serif",
   };
 
   const subtitleStyle = {
@@ -476,9 +480,9 @@ const CustomerLoginPage = () => {
 
             {isLogin && (
               <div style={{ textAlign: 'right', marginBottom: '24px' }}>
-                <a href="/forgot-password" style={linkStyle}>
+                <Link to="/forgot-password" style={linkStyle}>
                   Quên mật khẩu?
-                </a>
+                </Link>
               </div>
             )}
 

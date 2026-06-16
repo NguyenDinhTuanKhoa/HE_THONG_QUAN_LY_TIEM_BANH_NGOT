@@ -8,16 +8,19 @@ import './styles/responsive.css';
 
 // Context Providers
 import { CartProvider } from './context/CartContext';
+import { ToastProvider } from './components/common/Toast';
 
 // Main App Component
 import App from './App';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <CartProvider>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </CartProvider>
+    <ToastProvider>
+      <CartProvider>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </CartProvider>
+    </ToastProvider>
   </StrictMode>
 );

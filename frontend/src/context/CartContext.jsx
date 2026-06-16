@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useToast } from '../components/common/Toast';
 
 const CartContext = createContext();
 
@@ -11,6 +12,7 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
+  const toast = useToast();
   const [cartItems, setCartItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -60,15 +62,13 @@ export const CartProvider = ({ children }) => {
     });
     
     setIsLoading(false);
-    
-    // Show success notification
-    showNotification(`Đã thêm ${product.name} vào giỏ hàng!`, 'success');
+    toast.success(`Đã thêm ${product.name} vào giỏ hàng!`);
   };
 
   // Remove item from cart
   const removeFromCart = (productId) => {
     setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
-    showNotification('Đã xóa sản phẩm khỏi giỏ hàng!', 'info');
+    toast.info('Đã xóa sản phẩm khỏi giỏ hàng!');
   };
 
   // Update item quantity
@@ -90,7 +90,7 @@ export const CartProvider = ({ children }) => {
   // Clear entire cart
   const clearCart = () => {
     setCartItems([]);
-    showNotification('Đã xóa tất cả sản phẩm khỏi giỏ hàng!', 'info');
+    toast.info('Đã xóa tất cả sản phẩm khỏi giỏ hàng!');
   };
 
   // Add multiple items to cart (for reorder)
@@ -126,7 +126,7 @@ export const CartProvider = ({ children }) => {
     });
 
     setIsLoading(false);
-    showNotification(`Đã thêm ${items.length} sản phẩm vào giỏ hàng!`, 'success');
+    toast.success(`Đã thêm ${items.length} sản phẩm vào giỏ hàng!`);
   };
 
   // Get cart totals
@@ -152,56 +152,6 @@ export const CartProvider = ({ children }) => {
     return item ? item.quantity : 0;
   };
 
-  // Simple notification system
-  const showNotification = (message, type = 'info') => {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      z-index: 10000;
-      font-size: 14px;
-      font-weight: 500;
-      max-width: 300px;
-      animation: slideIn 0.3s ease;
-    `;
-    
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    
-    // Add CSS animation
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes slideIn {
-        from {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-        to {
-          transform: translateX(0);
-          opacity: 1;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-    
-    // Remove notification after 3 seconds
-    setTimeout(() => {
-      notification.style.animation = 'slideIn 0.3s ease reverse';
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
-        }
-      }, 300);
-    }, 3000);
-  };
-
   const value = {
     cartItems,
     isLoading,
@@ -213,7 +163,6 @@ export const CartProvider = ({ children }) => {
     getCartTotals,
     isInCart,
     getItemQuantity,
-    showNotification
   };
 
   return (

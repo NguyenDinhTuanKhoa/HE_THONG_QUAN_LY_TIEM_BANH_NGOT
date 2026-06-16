@@ -5,6 +5,7 @@ import ResponsiveImage from '../../components/common/ResponsiveImage';
 import ResponsiveContainer from '../../components/common/ResponsiveContainer';
 import ResponsiveGrid from '../../components/common/ResponsiveGrid';
 import { useCart } from '../../context/CartContext';
+import apiService from '../../services/api';
 
 const HomePage = () => {
   const { addToCart } = useCart();
@@ -35,25 +36,11 @@ const HomePage = () => {
     promotions: []
   });
 
-  // Load real data from localStorage
   useEffect(() => {
     loadFeaturedProducts();
     loadCategories();
     loadWebsiteSettings();
     loadAboutContent();
-  }, []);
-
-  // Listen for storage changes to update categories when products change
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'bakeryProducts' || e.key === 'bakeryCategories') {
-        loadCategories();
-        loadFeaturedProducts();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   // Theo dõi thay đổi kích thước màn hình
@@ -66,81 +53,71 @@ const HomePage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const loadAboutContent = () => {
-    const savedContent = JSON.parse(localStorage.getItem('aboutContent') || '{}');
-    if (Object.keys(savedContent).length > 0) {
-      setAboutContent(savedContent);
+  const loadAboutContent = async () => {
+    try {
+      const res = await apiService.getSettings();
+      const s = res.data || res;
+      if (s && Object.keys(s).length > 0) {
+        setAboutContent(prev => ({ ...prev, ...s.about }));
+      }
+    } catch {
+      // giữ giá trị mặc định
     }
   };
 
-  const loadWebsiteSettings = () => {
-    const savedSettings = JSON.parse(localStorage.getItem('websiteSettings') || '{}');
-    if (Object.keys(savedSettings).length > 0) {
-      setWebsiteSettings(prev => ({ ...prev, ...savedSettings }));
+  const loadWebsiteSettings = async () => {
+    try {
+      const res = await apiService.getSettings();
+      const s = res.data || res;
+      if (s) setWebsiteSettings(prev => ({ ...prev, ...s }));
+    } catch {
+      // giữ giá trị mặc định
     }
   };
 
-  const loadFeaturedProducts = () => {
-    // Load products from admin management
-    const savedProducts = JSON.parse(localStorage.getItem('bakeryProducts') || '[]');
-
-    // Filter only available products and get featured ones
-    const availableProducts = savedProducts.filter(product =>
-      product.status === 'available' && product.stock > 0
-    );
-
-    // Get top 6 products (random selection)
-    const featured = availableProducts
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 6);
-
-    setFeaturedProducts(featured);
-
-    // Calculate stats
-    setStats({
-      totalProducts: availableProducts.length,
-      totalCategories: new Set(availableProducts.map(p => p.category)).size,
-      newProducts: availableProducts.filter(p => p.isNew).length,
-      hotProducts: availableProducts.filter(p => p.isHot).length
-    });
+  const loadFeaturedProducts = async () => {
+    try {
+      const res = await apiService.getProducts({ status: 'available', limit: 6, sort: 'featured' });
+      const list = (res.data || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.sale_price || p.price,
+        image: p.featured_image,
+        description: p.short_description || p.description,
+        stock: p.stock_quantity,
+        isNew: false,
+        isHot: p.is_bestseller,
+        category: p.category_id,
+      }));
+      setFeaturedProducts(list);
+      setStats({
+        totalProducts: res.meta?.pagination?.total || list.length,
+        totalCategories: new Set(list.map(p => p.category)).size,
+        newProducts: list.filter(p => p.isNew).length,
+        hotProducts: list.filter(p => p.isHot).length,
+      });
+    } catch {
+      setFeaturedProducts([]);
+    }
   };
 
-  const loadCategories = () => {
-    // Load categories from admin management
-    const savedCategories = JSON.parse(localStorage.getItem('bakeryCategories') || '[]');
-    const savedProducts = JSON.parse(localStorage.getItem('bakeryProducts') || '[]');
-
-    // Calculate product count for each category
-    const categoriesWithCount = savedCategories.map(category => ({
-      ...category,
-      productCount: getProductCountByCategory(category.id, savedProducts)
-    }));
-
-    const activeCategories = categoriesWithCount.filter(c => c.status === 'active');
-    setCategories(activeCategories.slice(0, 6)); // Show top 6 categories
+  const loadCategories = async () => {
+    try {
+      const res = await apiService.getCategories();
+      const list = (res.data || []).filter(c => c.status === 'active').slice(0, 6).map(c => ({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        image: c.image,
+        icon: c.icon,
+        productCount: c.product_count || 0,
+        status: c.status,
+      }));
+      setCategories(list);
+    } catch {
+      setCategories([]);
+    }
   };
-
-  const getProductCountByCategory = (categoryId, products = null) => {
-    const productList = products || JSON.parse(localStorage.getItem('bakeryProducts') || '[]');
-    return productList.filter(product =>
-      product.category.toString() === categoryId.toString() &&
-      product.status === 'available'
-    ).length;
-  };
-
-  // Function to refresh all data
-  const refreshData = () => {
-    loadFeaturedProducts();
-    loadCategories();
-  };
-
-  // Expose refresh function globally for admin updates
-  useEffect(() => {
-    window.refreshHomePage = refreshData;
-    return () => {
-      delete window.refreshHomePage;
-    };
-  }, []);
 
   // Create banner slides from admin promotions or use defaults
   const getBannerSlides = () => {
@@ -281,11 +258,13 @@ const HomePage = () => {
 
   const sectionTitleStyle = {
     textAlign: 'center',
-    fontSize: 'clamp(24px, 4vw, 36px)',
-    fontWeight: 'bold',
+    fontSize: 'clamp(26px, 4vw, 40px)',
+    fontWeight: '700',
     color: '#1f2937',
     marginBottom: '16px',
     lineHeight: '1.2',
+    fontFamily: "'Playfair Display', Georgia, serif",
+    letterSpacing: '-0.5px',
   };
 
   const sectionSubtitleStyle = {
@@ -312,10 +291,11 @@ const HomePage = () => {
 
   const productCardStyle = {
     backgroundColor: '#fff',
-    borderRadius: '16px',
+    borderRadius: '20px',
     overflow: 'hidden',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-    transition: 'all 0.3s ease',
+    boxShadow: '0 2px 16px rgba(0,0,0,.07)',
+    border: '1px solid rgba(0,0,0,.04)',
+    transition: 'all 0.35s cubic-bezier(.22,.61,.36,1)',
     cursor: 'pointer',
     position: 'relative',
   };
@@ -340,9 +320,11 @@ const HomePage = () => {
   };
 
   const productPriceStyle = {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    color: '#F8A5C2',
+    fontSize: '20px',
+    fontWeight: '800',
+    background: 'linear-gradient(135deg,#F8A5C2,#FF85A2)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
     marginBottom: '16px',
   };
 
@@ -404,17 +386,22 @@ const HomePage = () => {
 
   const statItemStyle = {
     textAlign: 'center',
-    padding: '20px',
+    padding: '28px 20px',
     background: '#fff',
-    borderRadius: '12px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+    borderRadius: '20px',
+    boxShadow: '0 4px 24px rgba(0,0,0,.08)',
+    border: '1px solid rgba(248,165,194,.12)',
+    transition: 'transform .25s ease, box-shadow .25s ease',
   };
 
   const statNumberStyle = {
-    fontSize: '32px',
-    fontWeight: 'bold',
-    color: '#F8A5C2',
+    fontSize: '36px',
+    fontWeight: '800',
+    background: 'linear-gradient(135deg,#F8A5C2,#FF85A2)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
     marginBottom: '8px',
+    fontFamily: "'Playfair Display', Georgia, serif",
   };
 
   const statLabelStyle = {
@@ -691,12 +678,14 @@ const HomePage = () => {
               key={product.id}
               style={productCardStyle}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-8px)';
-                e.currentTarget.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.15)';
+                e.currentTarget.style.transform = 'translateY(-10px) scale(1.01)';
+                e.currentTarget.style.boxShadow = '0 20px 50px rgba(248,165,194,.25)';
+                e.currentTarget.style.borderColor = 'rgba(248,165,194,.3)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
+                e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                e.currentTarget.style.boxShadow = '0 2px 16px rgba(0,0,0,.07)';
+                e.currentTarget.style.borderColor = 'rgba(0,0,0,.04)';
               }}
             >
               {(product.isNew || product.isHot) && (

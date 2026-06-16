@@ -13,6 +13,8 @@ import CheckoutPage from '../pages/customer/CheckoutPage';
 import OrderHistoryPage from '../pages/customer/OrderHistoryPage';
 import ProfilePage from '../pages/customer/ProfilePage';
 import ContactPage from '../pages/customer/ContactPage';
+import ForgotPasswordPage from '../pages/customer/ForgotPasswordPage';
+import NotFoundPage from '../pages/NotFoundPage';
 
 function CustomerRoutes() {
   return (
@@ -66,9 +68,12 @@ function CustomerRoutes() {
           <ContactPage />
         </CustomerProtectedRoute>
       } />
-      
-      {/* Catch all - redirect to home */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+
+      {/* Public utility routes */}
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+      {/* Catch all - trang 404 */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

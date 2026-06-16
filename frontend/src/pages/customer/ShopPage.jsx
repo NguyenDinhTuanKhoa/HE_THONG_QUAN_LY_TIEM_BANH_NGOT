@@ -4,6 +4,7 @@ import CustomerHeader from '../../components/customer/Header';
 import ResponsiveImage from '../../components/common/ResponsiveImage';
 import ResponsiveContainer from '../../components/common/ResponsiveContainer';
 import ResponsiveGrid from '../../components/common/ResponsiveGrid';
+import { SkeletonProductGrid } from '../../components/common/Skeleton';
 import { useCart } from '../../context/CartContext';
 
 const ShopPage = () => {
@@ -19,7 +20,10 @@ const ShopPage = () => {
     sortBy: 'name'
   });
   const [viewMode, setViewMode] = useState('grid');
+  const [isLoading, setIsLoading] = useState(true);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 12;
 
   // Load products from admin management
   useEffect(() => {
@@ -38,6 +42,7 @@ const ShopPage = () => {
   }, []);
 
   const loadProducts = async () => {
+    setIsLoading(true);
     try {
       const res = await import('../../services/api').then(m => m.default.getProducts({ status: 'active', limit: 100 }));
       const apiProducts = (res.data || []).map(p => ({
@@ -57,8 +62,9 @@ const ShopPage = () => {
       }));
       setProducts(apiProducts);
     } catch {
-      // fallback: không dùng mock, hiện mảng rỗng để tránh misleading data
       setProducts([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -200,7 +206,11 @@ const ShopPage = () => {
     });
 
     setFilteredProducts(filtered);
+    setCurrentPage(1);
   }, [products, filters]);
+
+  const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE);
+  const pagedProducts = filteredProducts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -266,9 +276,10 @@ const ShopPage = () => {
 
   const sidebarStyle = {
     background: '#fff',
-    borderRadius: '12px',
+    borderRadius: '16px',
     padding: '24px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+    boxShadow: '0 2px 16px rgba(0,0,0,.07)',
+    border: '1px solid rgba(0,0,0,.05)',
     display: 'grid',
     gridTemplateColumns: getFilterGridColumns(),
     gap: '20px',
@@ -282,10 +293,12 @@ const ShopPage = () => {
   };
 
   const filterTitleStyle = {
-    fontSize: '16px',
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontSize: '14px',
+    fontWeight: '700',
+    color: '#374151',
     marginBottom: '12px',
+    textTransform: 'uppercase',
+    letterSpacing: '.6px',
   };
 
   const categoryItemStyle = (isActive) => ({
@@ -314,9 +327,10 @@ const ShopPage = () => {
 
   const productsAreaStyle = {
     background: '#fff',
-    borderRadius: '12px',
+    borderRadius: '16px',
     padding: '24px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+    boxShadow: '0 2px 16px rgba(0,0,0,.07)',
+    border: '1px solid rgba(0,0,0,.05)',
   };
 
   const toolbarStyle = {
@@ -340,15 +354,17 @@ const ShopPage = () => {
     padding: '4px',
   };
 
-  const viewButtonStyle = (isActive) => ({
+  const viewButtonStyle = (active) => ({
     padding: '8px 16px',
     border: 'none',
-    backgroundColor: isActive ? '#F8A5C2' : 'transparent',
-    color: isActive ? '#fff' : '#6b7280',
-    borderRadius: '6px',
+    backgroundColor: active ? '#F8A5C2' : 'transparent',
+    color: active ? '#fff' : '#6b7280',
+    borderRadius: '8px',
     cursor: 'pointer',
     fontSize: '14px',
+    fontWeight: active ? '600' : '500',
     transition: 'all 0.2s ease',
+    boxShadow: active ? '0 2px 8px rgba(248,165,194,.4)' : 'none',
   });
 
   // Tính toán số cột dựa trên kích thước màn hình, tối đa 4 cột
@@ -368,10 +384,11 @@ const ShopPage = () => {
 
   const productCardStyle = {
     backgroundColor: '#fff',
-    borderRadius: '12px',
+    borderRadius: '20px',
     overflow: 'hidden',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-    transition: 'all 0.3s ease',
+    boxShadow: '0 2px 16px rgba(0,0,0,.07)',
+    border: '1px solid rgba(0,0,0,.04)',
+    transition: 'all 0.35s cubic-bezier(.22,.61,.36,1)',
     cursor: 'pointer',
     position: 'relative',
     display: viewMode === 'list' ? 'flex' : 'block',
@@ -403,8 +420,10 @@ const ShopPage = () => {
 
   const productPriceStyle = {
     fontSize: '20px',
-    fontWeight: 'bold',
-    color: '#F8A5C2',
+    fontWeight: '800',
+    background: 'linear-gradient(135deg,#F8A5C2,#FF85A2)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
     marginBottom: '12px',
   };
 
@@ -526,7 +545,7 @@ const ShopPage = () => {
             {/* Toolbar */}
             <div style={toolbarStyle}>
               <div style={resultsInfoStyle}>
-                Hiển thị {filteredProducts.length} sản phẩm
+                Hiển thị {pagedProducts.length} / {filteredProducts.length} sản phẩm
               </div>
               
               <div style={viewToggleStyle}>
@@ -546,18 +565,23 @@ const ShopPage = () => {
             </div>
 
             {/* Products Grid */}
-            <div style={gridStyle}>
-              {filteredProducts.map((product) => (
+            {isLoading ? (
+              <SkeletonProductGrid count={PAGE_SIZE} columns={getGridColumns()} />
+            ) : null}
+            <div style={{ ...gridStyle, display: isLoading ? 'none' : gridStyle.display }}>
+              {pagedProducts.map((product) => (
                 <div
                   key={product.id}
                   style={productCardStyle}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
+                    e.currentTarget.style.transform = 'translateY(-8px) scale(1.01)';
+                    e.currentTarget.style.boxShadow = '0 20px 48px rgba(248,165,194,.22)';
+                    e.currentTarget.style.borderColor = 'rgba(248,165,194,.3)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                    e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                    e.currentTarget.style.boxShadow = '0 2px 16px rgba(0,0,0,.07)';
+                    e.currentTarget.style.borderColor = 'rgba(0,0,0,.04)';
                   }}
                 >
                   {/* Product Badges */}
@@ -652,6 +676,67 @@ const ShopPage = () => {
                 </div>
               ))}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '32px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px', border: '2px solid #e5e7eb',
+                    background: currentPage === 1 ? '#f3f4f6' : '#fff',
+                    color: currentPage === 1 ? '#9ca3af' : '#374151',
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                    fontWeight: '600', fontSize: '14px',
+                  }}
+                >
+                  ‹ Trước
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                  .reduce((acc, p, idx, arr) => {
+                    if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === '...' ? (
+                      <span key={`dot-${idx}`} style={{ padding: '8px 4px', color: '#6b7280' }}>…</span>
+                    ) : (
+                      <button
+                        key={item}
+                        onClick={() => setCurrentPage(item)}
+                        style={{
+                          width: '40px', height: '40px', borderRadius: '8px',
+                          border: '2px solid ' + (currentPage === item ? '#F8A5C2' : '#e5e7eb'),
+                          background: currentPage === item ? '#F8A5C2' : '#fff',
+                          color: currentPage === item ? '#fff' : '#374151',
+                          cursor: 'pointer', fontWeight: '600', fontSize: '14px',
+                        }}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )
+                }
+
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px', border: '2px solid #e5e7eb',
+                    background: currentPage === totalPages ? '#f3f4f6' : '#fff',
+                    color: currentPage === totalPages ? '#9ca3af' : '#374151',
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                    fontWeight: '600', fontSize: '14px',
+                  }}
+                >
+                  Sau ›
+                </button>
+              </div>
+            )}
 
             {filteredProducts.length === 0 && (
               <div style={{

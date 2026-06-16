@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const customerController = require('../controllers/customerController');
 const { verifyCustomerToken } = require('../middleware/auth');
+const { auth: authLimiter, createAccount: registerLimiter } = require('../middleware/rateLimiter');
 
 // Đăng ký / đăng nhập khách hàng (public)
-router.post('/register', customerController.register);
-router.post('/login', customerController.login);
+router.post('/register', registerLimiter, customerController.register);
+router.post('/login', authLimiter, customerController.login);
 
 // Thông tin + cập nhật hồ sơ (cần token Bearer)
 router.get('/me', verifyCustomerToken, customerController.getMe);

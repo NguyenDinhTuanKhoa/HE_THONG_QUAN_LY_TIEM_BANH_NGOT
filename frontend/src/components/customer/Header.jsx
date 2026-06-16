@@ -1,62 +1,131 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 
+/* ─── hook: screen width reactive ──────────────────────────────── */
+const useIsMobile = (bp = 768) => {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= bp);
+  useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth <= bp);
+    window.addEventListener('resize', fn);
+    return () => window.removeEventListener('resize', fn);
+  }, [bp]);
+  return isMobile;
+};
+
+/* ─── NavLink helper ─────────────────────────────────────────── */
+const NavItem = ({ to, label, icon, isScrolled, isActive, onClick }) => (
+  <Link
+    to={to}
+    onClick={onClick}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      padding: '8px 14px',
+      borderRadius: '9999px',
+      textDecoration: 'none',
+      fontSize: '15px',
+      fontWeight: isActive ? '700' : '500',
+      color: isActive
+        ? '#F8A5C2'
+        : isScrolled ? '#1f2937' : '#fff',
+      background: isActive
+        ? (isScrolled ? 'rgba(248,165,194,.12)' : 'rgba(255,255,255,.18)')
+        : 'transparent',
+      transition: 'all .2s ease',
+      whiteSpace: 'nowrap',
+      position: 'relative',
+    }}
+  >
+    {icon && <span style={{ fontSize: '16px' }}>{icon}</span>}
+    {label}
+    {isActive && (
+      <span style={{
+        position: 'absolute',
+        bottom: '-2px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '18px',
+        height: '3px',
+        borderRadius: '9999px',
+        background: '#F8A5C2',
+      }} />
+    )}
+  </Link>
+);
+
+/* ═══════════════════════════════════════════════════════════════ */
 const CustomerHeader = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { getCartTotals } = useCart();
+  const { itemCount } = getCartTotals();
+
+  const isMobile = useIsMobile(900);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   const [customer, setCustomer] = useState(null);
   const [adminUser, setAdminUser] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [websiteSettings, setWebsiteSettings] = useState({
-    siteName: 'Sweet Bakery',
-    logo: '🧁',
-    tagline: 'Bánh ngọt tươi ngon mỗi ngày'
-  });
+  const [siteName, setSiteName] = useState('Sweet Bakery');
+  const [siteLogo, setSiteLogo] = useState('🧁');
 
-  // Get cart totals
-  const { itemCount } = getCartTotals();
+  const userMenuRef = useRef(null);
+  const searchRef = useRef(null);
 
-  // Handle scroll effect
+  const isActive = (path) =>
+    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+
+  /* scroll */
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+    const fn = () => setIsScrolled(window.scrollY > 60);
+    window.addEventListener('scroll', fn, { passive: true });
+    return () => window.removeEventListener('scroll', fn);
+  }, []);
+
+  /* auth */
+  useEffect(() => {
+    try {
+      const c = localStorage.getItem('customer');
+      if (c) setCustomer(JSON.parse(c));
+      const u = localStorage.getItem('user');
+      if (u) setAdminUser(JSON.parse(u));
+    } catch { /* ignore */ }
+  }, [location]);
+
+  /* site settings */
+  useEffect(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('websiteSettings') || '{}');
+      if (s.siteName) setSiteName(s.siteName);
+      if (s.logo)     setSiteLogo(s.logo);
+    } catch { /* ignore */ }
+  }, []);
+
+  /* close menus on outside click */
+  useEffect(() => {
+    const fn = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) setShowUserMenu(false);
+      if (showSearch && searchRef.current && !searchRef.current.contains(e.target)) setShowSearch(false);
     };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, [showSearch]);
 
-  useEffect(() => {
-    // Load website settings from admin
-    const savedSettings = JSON.parse(localStorage.getItem('websiteSettings') || '{}');
-    if (Object.keys(savedSettings).length > 0) {
-      setWebsiteSettings(prev => ({ ...prev, ...savedSettings }));
-    }
-  }, []);
+  /* close mobile menu on route change */
+  useEffect(() => { setIsMenuOpen(false); }, [location]);
 
-  // Check customer login status
-  useEffect(() => {
-    const customerData = localStorage.getItem('customer');
-    if (customerData) {
-      try {
-        setCustomer(JSON.parse(customerData));
-      } catch {
-        localStorage.removeItem('customer');
-      }
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      navigate(`/shop?search=${encodeURIComponent(searchTerm.trim())}`);
+      setSearchTerm('');
+      setShowSearch(false);
     }
-
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      try {
-        setAdminUser(JSON.parse(userData));
-      } catch {
-        localStorage.removeItem('user');
-      }
-    }
-  }, []);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('customer');
@@ -72,500 +141,593 @@ const CustomerHeader = () => {
     navigate('/login');
   };
 
-  // Close user menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showUserMenu && !event.target.closest('.user-menu-container')) {
-        setShowUserMenu(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showUserMenu]);
-
-  const headerStyle = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000,
-    background: isScrolled 
-      ? 'rgba(255, 255, 255, 0.95)' 
-      : 'linear-gradient(135deg, #F8A5C2, #FF85A2)',
-    backdropFilter: isScrolled ? 'blur(10px)' : 'none',
-    transition: 'all 0.3s ease',
-    boxShadow: isScrolled ? '0 2px 20px rgba(0, 0, 0, 0.1)' : 'none',
-  };
-
-  const containerStyle = {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '0 clamp(16px, 4vw, 20px)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: '70px',
-  };
-
-  const logoStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'clamp(8px, 2vw, 12px)',
-    textDecoration: 'none',
-    color: isScrolled ? '#1f2937' : '#fff',
-    fontSize: 'clamp(18px, 3vw, 24px)',
-    fontWeight: 'bold',
-    transition: 'color 0.3s ease',
-  };
-
-  const logoIconStyle = {
-    fontSize: '32px',
-  };
-
-  const navStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '32px',
-  };
-
-  const navLinkStyle = {
-    color: isScrolled ? '#1f2937' : '#fff',
-    textDecoration: 'none',
-    fontSize: '16px',
-    fontWeight: '500',
-    transition: 'all 0.3s ease',
-    padding: '8px 16px',
-    borderRadius: '20px',
-    position: 'relative',
-  };
-
-  const searchContainerStyle = {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-  };
-
-  const searchInputStyle = {
-    padding: 'clamp(8px, 1.5vw, 10px) 40px clamp(8px, 1.5vw, 10px) 16px',
-    borderRadius: '25px',
-    border: isScrolled ? '2px solid #e5e7eb' : '2px solid rgba(255, 255, 255, 0.3)',
-    background: isScrolled ? '#fff' : 'rgba(255, 255, 255, 0.2)',
-    color: isScrolled ? '#1f2937' : '#fff',
-    fontSize: 'clamp(12px, 2vw, 14px)',
-    width: 'clamp(180px, 20vw, 250px)',
-    outline: 'none',
-    transition: 'all 0.3s ease',
-  };
-
-  const searchButtonStyle = {
-    position: 'absolute',
-    right: '8px',
-    background: 'none',
-    border: 'none',
-    color: isScrolled ? '#6b7280' : '#fff',
-    fontSize: '18px',
-    cursor: 'pointer',
-    padding: '4px',
-  };
-
-  const actionsStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-  };
-
-  const cartButtonStyle = {
-    position: 'relative',
-    background: isScrolled ? '#F8A5C2' : 'rgba(255, 255, 255, 0.2)',
-    border: 'none',
-    color: isScrolled ? '#fff' : '#fff',
-    padding: '12px',
-    borderRadius: '50%',
-    cursor: 'pointer',
-    fontSize: '20px',
-    transition: 'all 0.3s ease',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '48px',
-    height: '48px',
-  };
-
-  const cartBadgeStyle = {
-    position: 'absolute',
-    top: '-5px',
-    right: '-5px',
-    background: '#ef4444',
-    color: '#fff',
-    borderRadius: '50%',
-    width: '20px',
-    height: '20px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '12px',
-    fontWeight: 'bold',
-  };
-
-  const loginButtonStyle = {
-    background: isScrolled ? 'linear-gradient(135deg, #F8A5C2, #FF85A2)' : 'rgba(255, 255, 255, 0.2)',
-    border: isScrolled ? 'none' : '2px solid rgba(255, 255, 255, 0.3)',
-    color: '#fff',
-    padding: '10px 20px',
-    borderRadius: '25px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
-    transition: 'all 0.3s ease',
-  };
-
-  const mobileMenuButtonStyle = {
-    display: 'none',
-    background: 'none',
-    border: 'none',
-    color: isScrolled ? '#1f2937' : '#fff',
-    fontSize: '24px',
-    cursor: 'pointer',
-    padding: '8px',
-  };
-
-  const mobileMenuStyle = {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    background: '#fff',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-    borderRadius: '0 0 12px 12px',
-    padding: '20px',
-    display: isMenuOpen ? 'block' : 'none',
-  };
-
-  const mobileNavLinkStyle = {
-    display: 'block',
-    color: '#1f2937',
-    textDecoration: 'none',
-    padding: '12px 0',
-    borderBottom: '1px solid #f3f4f6',
-    fontSize: '16px',
-  };
-
-  const userButtonStyle = {
-    position: 'relative',
-    background: isScrolled ? '#F8A5C2' : 'rgba(255, 255, 255, 0.2)',
-    border: 'none',
-    color: '#fff',
-    padding: '8px 16px',
-    borderRadius: '25px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
-    transition: 'all 0.3s ease',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  };
-
-  const userMenuStyle = {
-    position: 'absolute',
-    top: '100%',
-    right: 0,
-    marginTop: '8px',
-    background: '#fff',
-    borderRadius: '12px',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-    padding: '8px 0',
-    minWidth: '200px',
-    zIndex: 1000,
-    display: showUserMenu ? 'block' : 'none',
-  };
-
-  const userMenuItemStyle = {
-    display: 'block',
-    padding: '12px 20px',
-    color: '#374151',
-    textDecoration: 'none',
-    fontSize: '14px',
-    transition: 'background-color 0.2s ease',
-    border: 'none',
-    background: 'none',
-    width: '100%',
-    textAlign: 'left',
-    cursor: 'pointer',
-  };
-
-  const userInfoStyle = {
-    padding: '12px 20px',
-    borderBottom: '1px solid #f3f4f6',
-    marginBottom: '4px',
-  };
-
-  const userNameStyle = {
-    fontWeight: 'bold',
-    color: '#1f2937',
-    fontSize: '14px',
-    marginBottom: '4px',
-  };
-
-  const userEmailStyle = {
-    color: '#6b7280',
-    fontSize: '12px',
-  };
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchTerm.trim()) {
-      navigate(`/shop?search=${encodeURIComponent(searchTerm)}`);
-    }
-  };
-
-  const menuItems = [
-    { label: 'Trang chủ', path: '/' },
-    { label: 'Cửa hàng', path: '/shop' },
-    { label: 'Giỏ hàng', path: '/cart' },
-    { label: 'Liên hệ', path: '/contact' },
+  const nav = [
+    { to: '/',        label: 'Trang chủ', icon: '🏠' },
+    { to: '/shop',    label: 'Cửa hàng',  icon: '🧁' },
+    { to: '/contact', label: 'Liên hệ',   icon: '📞' },
   ];
+
+  /* ── styles ── */
+  const S = {
+    header: {
+      position: 'fixed',
+      top: 0, left: 0, right: 0,
+      zIndex: 'var(--z-header, 1000)',
+      background: isScrolled
+        ? 'rgba(255,255,255,.96)'
+        : 'linear-gradient(135deg,#F8A5C2 0%,#FF85A2 100%)',
+      backdropFilter: isScrolled ? 'blur(12px)' : 'none',
+      boxShadow: isScrolled ? '0 2px 24px rgba(0,0,0,.09)' : 'none',
+      borderBottom: isScrolled ? '1px solid rgba(0,0,0,.06)' : 'none',
+      transition: 'all .35s ease',
+    },
+    inner: {
+      maxWidth: '1200px',
+      margin: '0 auto',
+      padding: '0 clamp(16px,4vw,24px)',
+      display: 'flex',
+      alignItems: 'center',
+      height: '68px',
+      gap: '24px',
+    },
+    logo: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      textDecoration: 'none',
+      flexShrink: 0,
+    },
+    logoIcon: {
+      fontSize: '30px',
+      lineHeight: 1,
+      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.12))',
+    },
+    logoText: {
+      fontSize: 'clamp(16px,2.5vw,21px)',
+      fontWeight: '800',
+      background: isScrolled
+        ? 'linear-gradient(135deg,#F8A5C2,#FF85A2)'
+        : 'none',
+      WebkitBackgroundClip: isScrolled ? 'text' : undefined,
+      WebkitTextFillColor: isScrolled ? 'transparent' : '#fff',
+      color: isScrolled ? 'transparent' : '#fff',
+      letterSpacing: '-.3px',
+      fontFamily: 'Playfair Display, Georgia, serif',
+    },
+    spacer: { flex: 1 },
+    cartBtn: {
+      position: 'relative',
+      background: isScrolled ? 'var(--color-primary-pale,#fff5f9)' : 'rgba(255,255,255,.18)',
+      border: isScrolled ? '1.5px solid rgba(248,165,194,.3)' : 'none',
+      color: isScrolled ? '#F8A5C2' : '#fff',
+      width: '44px', height: '44px',
+      borderRadius: '50%',
+      cursor: 'pointer',
+      fontSize: '20px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: 'all .2s ease',
+      flexShrink: 0,
+    },
+    cartBadge: {
+      position: 'absolute',
+      top: '-4px', right: '-4px',
+      background: '#ef4444',
+      color: '#fff',
+      borderRadius: '50%',
+      width: '18px', height: '18px',
+      fontSize: '11px',
+      fontWeight: '700',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: '0 0 0 2px #fff',
+      animation: itemCount > 0 ? 'pulse .5s ease' : 'none',
+    },
+    searchBtn: {
+      background: isScrolled ? 'var(--color-primary-pale,#fff5f9)' : 'rgba(255,255,255,.18)',
+      border: isScrolled ? '1.5px solid rgba(248,165,194,.3)' : 'none',
+      color: isScrolled ? '#F8A5C2' : '#fff',
+      width: '44px', height: '44px',
+      borderRadius: '50%',
+      cursor: 'pointer',
+      fontSize: '18px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: 'all .2s ease',
+      flexShrink: 0,
+    },
+    loginBtn: {
+      background: isScrolled
+        ? 'linear-gradient(135deg,#F8A5C2,#FF85A2)'
+        : 'rgba(255,255,255,.18)',
+      border: isScrolled ? 'none' : '1.5px solid rgba(255,255,255,.5)',
+      color: '#fff',
+      padding: '10px 20px',
+      borderRadius: '9999px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '600',
+      transition: 'all .2s ease',
+      whiteSpace: 'nowrap',
+      flexShrink: 0,
+    },
+    userBtn: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      background: isScrolled ? 'var(--color-primary-pale,#fff5f9)' : 'rgba(255,255,255,.18)',
+      border: isScrolled ? '1.5px solid rgba(248,165,194,.3)' : '1.5px solid rgba(255,255,255,.3)',
+      color: isScrolled ? '#1f2937' : '#fff',
+      padding: '8px 14px',
+      borderRadius: '9999px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '600',
+      transition: 'all .2s ease',
+      flexShrink: 0,
+    },
+    dropdown: {
+      position: 'absolute',
+      top: 'calc(100% + 10px)',
+      right: 0,
+      background: '#fff',
+      borderRadius: '16px',
+      boxShadow: '0 8px 40px rgba(0,0,0,.14)',
+      border: '1px solid rgba(0,0,0,.06)',
+      minWidth: '210px',
+      overflow: 'hidden',
+      animation: 'slideDown .2s ease both',
+      zIndex: 100,
+    },
+    dropdownHeader: {
+      padding: '14px 18px 12px',
+      borderBottom: '1px solid #f3f4f6',
+      background: 'linear-gradient(135deg,#fff5f9,#fff)',
+    },
+    dropdownItem: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      padding: '11px 18px',
+      color: '#374151',
+      fontSize: '14px',
+      fontWeight: '500',
+      cursor: 'pointer',
+      background: 'none',
+      border: 'none',
+      width: '100%',
+      textAlign: 'left',
+      transition: 'background .15s ease',
+      textDecoration: 'none',
+    },
+    hamburger: {
+      background: 'none',
+      border: 'none',
+      color: isScrolled ? '#1f2937' : '#fff',
+      cursor: 'pointer',
+      padding: '8px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '5px',
+      flexShrink: 0,
+    },
+    mobileOverlay: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,.45)',
+      zIndex: 999,
+      animation: 'fadeIn .2s ease',
+    },
+    mobileMenu: {
+      position: 'fixed',
+      top: 0, left: 0, bottom: 0,
+      width: 'min(300px,85vw)',
+      background: '#fff',
+      zIndex: 1001,
+      display: 'flex',
+      flexDirection: 'column',
+      boxShadow: '4px 0 40px rgba(0,0,0,.15)',
+      animation: 'slideInFromLeft .3s ease',
+    },
+    mobileMenuHeader: {
+      padding: '20px 20px 16px',
+      borderBottom: '1px solid #f3f4f6',
+      background: 'linear-gradient(135deg,#F8A5C2,#FF85A2)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    mobileNavItem: (active) => ({
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      padding: '14px 20px',
+      color: active ? '#F8A5C2' : '#374151',
+      fontWeight: active ? '700' : '500',
+      fontSize: '16px',
+      textDecoration: 'none',
+      borderBottom: '1px solid #f9fafb',
+      background: active ? '#fff5f9' : 'transparent',
+      transition: 'all .15s ease',
+    }),
+  };
+
+  /* ── avatar initials ── */
+  const getInitials = (name) =>
+    name ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?';
+
+  const Avatar = ({ name, size = 30 }) => (
+    <span style={{
+      width: size, height: size,
+      background: 'linear-gradient(135deg,#F8A5C2,#FF85A2)',
+      borderRadius: '50%',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#fff',
+      fontSize: size * 0.38 + 'px',
+      fontWeight: '700',
+      flexShrink: 0,
+    }}>
+      {getInitials(name)}
+    </span>
+  );
+
+  /* ── bar lines for hamburger ── */
+  const BarLine = ({ rotate, translateY, opacity }) => (
+    <span style={{
+      display: 'block',
+      width: '22px', height: '2.5px',
+      background: isScrolled ? '#374151' : '#fff',
+      borderRadius: '9999px',
+      transition: 'all .3s ease',
+      transformOrigin: 'center',
+      transform: `${translateY ? `translateY(${translateY})` : ''} ${rotate ? `rotate(${rotate})` : ''}`,
+      opacity: opacity !== undefined ? opacity : 1,
+    }} />
+  );
 
   return (
     <>
-      <header style={headerStyle}>
-        <div style={containerStyle}>
+      {/* ── Desktop Header ─────────────────────────────────────── */}
+      <header style={S.header}>
+        <div style={S.inner}>
           {/* Logo */}
-          <Link to="/" style={logoStyle}>
-            <span style={logoIconStyle}>{websiteSettings.logo}</span>
-            <span>{websiteSettings.siteName}</span>
+          <Link to="/" style={S.logo}>
+            <span style={S.logoIcon}>{siteLogo}</span>
+            <span style={S.logoText}>{siteName}</span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav style={{ ...navStyle, display: window.innerWidth > 768 ? 'flex' : 'none' }}>
-            {menuItems.map((item, index) => (
-              <Link
-                key={index}
-                to={item.path}
-                style={navLinkStyle}
-                onMouseEnter={(e) => {
-                  e.target.style.background = isScrolled
-                    ? 'rgba(248, 165, 194, 0.1)'
-                    : 'rgba(255, 255, 255, 0.2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'transparent';
-                }}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          {/* Desktop Nav */}
+          {!isMobile && (
+            <nav style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {nav.map(item => (
+                <NavItem
+                  key={item.to}
+                  {...item}
+                  isScrolled={isScrolled}
+                  isActive={isActive(item.to)}
+                />
+              ))}
+            </nav>
+          )}
 
-          {/* Search */}
-          <div style={{
-            ...searchContainerStyle,
-            display: window.innerWidth > 768 ? 'flex' : 'none'
-          }}>
-            <form onSubmit={handleSearch}>
+          <div style={S.spacer} />
+
+          {/* Search (desktop inline) */}
+          {!isMobile && (
+            <form onSubmit={handleSearch} style={{ position: 'relative' }}>
               <input
                 type="text"
-                placeholder="Tìm kiếm sản phẩm..."
+                placeholder="Tìm bánh..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={searchInputStyle}
-                onFocus={(e) => {
-                  e.target.style.borderColor = '#F8A5C2';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(248, 165, 194, 0.1)';
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{
+                  padding: '9px 40px 9px 16px',
+                  borderRadius: '9999px',
+                  border: isScrolled ? '1.5px solid #e5e7eb' : '1.5px solid rgba(255,255,255,.4)',
+                  background: isScrolled ? '#fff' : 'rgba(255,255,255,.18)',
+                  color: isScrolled ? '#1f2937' : '#fff',
+                  fontSize: '14px',
+                  width: '200px',
+                  outline: 'none',
+                  transition: 'all .25s ease',
                 }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = isScrolled ? '#e5e7eb' : 'rgba(255, 255, 255, 0.3)';
+                onFocus={e => {
+                  e.target.style.width = '240px';
+                  e.target.style.borderColor = '#F8A5C2';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(248,165,194,.18)';
+                }}
+                onBlur={e => {
+                  e.target.style.width = '200px';
+                  e.target.style.borderColor = isScrolled ? '#e5e7eb' : 'rgba(255,255,255,.4)';
                   e.target.style.boxShadow = 'none';
                 }}
               />
-              <button type="submit" style={searchButtonStyle}>
+              <button
+                type="submit"
+                style={{
+                  position: 'absolute', right: '10px', top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none', border: 'none',
+                  color: isScrolled ? '#9ca3af' : 'rgba(255,255,255,.8)',
+                  cursor: 'pointer', fontSize: '16px', padding: '4px',
+                }}
+              >
                 🔍
               </button>
             </form>
-          </div>
+          )}
 
-          {/* Actions */}
-          <div style={actionsStyle}>
+          {/* Action buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Mobile search toggle */}
+            {isMobile && (
+              <button style={S.searchBtn} onClick={() => setShowSearch(v => !v)} aria-label="Tìm kiếm">
+                🔍
+              </button>
+            )}
+
             {/* Cart */}
             <button
-              style={cartButtonStyle}
+              style={S.cartBtn}
               onClick={() => navigate('/cart')}
-              onMouseEnter={(e) => {
-                e.target.style.transform = 'scale(1.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'scale(1)';
-              }}
+              aria-label={`Giỏ hàng (${itemCount})`}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
             >
               🛒
               {itemCount > 0 && (
-                <span style={cartBadgeStyle}>{itemCount}</span>
+                <span style={S.cartBadge}>{itemCount > 99 ? '99+' : itemCount}</span>
               )}
             </button>
 
-            {/* User Account */}
+            {/* User account */}
             {customer ? (
-              <div className="user-menu-container" style={{ position: 'relative' }}>
+              <div ref={userMenuRef} style={{ position: 'relative' }}>
                 <button
-                  style={userButtonStyle}
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  onMouseEnter={(e) => {
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = 'none';
-                  }}
+                  style={S.userBtn}
+                  onClick={() => setShowUserMenu(v => !v)}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
                 >
-                  <span>👤</span>
-                  <span>{customer.fullName}</span>
-                  <span style={{ fontSize: '10px' }}>▼</span>
+                  <Avatar name={customer.fullName || customer.full_name} size={28} />
+                  {!isMobile && (
+                    <span style={{ maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {(customer.fullName || customer.full_name || '').split(' ').slice(-1)[0]}
+                    </span>
+                  )}
+                  <span style={{ fontSize: '10px', opacity: .7 }}>▼</span>
                 </button>
 
-                {/* User Menu */}
-                <div style={userMenuStyle}>
-                  <div style={userInfoStyle}>
-                    <div style={userNameStyle}>{customer.fullName}</div>
-                    <div style={userEmailStyle}>{customer.email}</div>
+                {showUserMenu && (
+                  <div style={S.dropdown}>
+                    <div style={S.dropdownHeader}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Avatar name={customer.fullName || customer.full_name} size={36} />
+                        <div>
+                          <div style={{ fontWeight: '700', color: '#1f2937', fontSize: '14px' }}>
+                            {customer.fullName || customer.full_name}
+                          </div>
+                          <div style={{ color: '#6b7280', fontSize: '12px' }}>{customer.email}</div>
+                        </div>
+                      </div>
+                    </div>
+                    {[
+                      { icon: '👤', label: 'Thông tin cá nhân', to: '/profile' },
+                      { icon: '📋', label: 'Đơn hàng của tôi',  to: '/orders' },
+                    ].map(item => (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        style={S.dropdownItem}
+                        onClick={() => setShowUserMenu(false)}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+                      >
+                        <span>{item.icon}</span>{item.label}
+                      </Link>
+                    ))}
+                    <div style={{ borderTop: '1px solid #f3f4f6' }} />
+                    <button
+                      style={{ ...S.dropdownItem, color: '#ef4444' }}
+                      onClick={handleLogout}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#fef2f2'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+                    >
+                      <span>🚪</span>Đăng xuất
+                    </button>
                   </div>
-
-                  <button
-                    style={userMenuItemStyle}
-                    onClick={() => { navigate('/profile'); setShowUserMenu(false); }}
-                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#f9fafb'; }}
-                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; }}
-                  >
-                    👤 Thông tin cá nhân
-                  </button>
-
-                  <button
-                    style={userMenuItemStyle}
-                    onClick={() => { navigate('/orders'); setShowUserMenu(false); }}
-                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#f9fafb'; }}
-                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; }}
-                  >
-                    📋 Đơn hàng của tôi
-                  </button>
-
-                  <button
-                    style={{ ...userMenuItemStyle, borderTop: '1px solid #f3f4f6', marginTop: '4px', color: '#ef4444' }}
-                    onClick={handleLogout}
-                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#fef2f2'; }}
-                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; }}
-                  >
-                    🚪 Đăng xuất
-                  </button>
-                </div>
+                )}
               </div>
             ) : adminUser ? (
-              <div className="user-menu-container" style={{ position: 'relative' }}>
+              <div ref={userMenuRef} style={{ position: 'relative' }}>
                 <button
-                  style={userButtonStyle}
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  onMouseEnter={(e) => {
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = 'none';
-                  }}
+                  style={S.userBtn}
+                  onClick={() => setShowUserMenu(v => !v)}
                 >
-                  <span>🛡️</span>
-                  <span>{adminUser.username}</span>
-                  <span style={{ fontSize: '10px' }}>▼</span>
+                  <span style={{ fontSize: '20px' }}>🛡️</span>
+                  {!isMobile && <span>{adminUser.username}</span>}
+                  <span style={{ fontSize: '10px', opacity: .7 }}>▼</span>
                 </button>
 
-                <div style={userMenuStyle}>
-                  <div style={userInfoStyle}>
-                    <div style={userNameStyle}>{adminUser.username}</div>
-                    <div style={userEmailStyle}>
-                      {adminUser.role === 'admin' ? 'Quản trị viên' : adminUser.role === 'manager' ? 'Quản lý' : 'Nhân viên'}
+                {showUserMenu && (
+                  <div style={S.dropdown}>
+                    <div style={S.dropdownHeader}>
+                      <div style={{ fontWeight: '700', color: '#1f2937', fontSize: '14px' }}>{adminUser.username}</div>
+                      <div style={{ color: '#6b7280', fontSize: '12px' }}>
+                        {adminUser.role === 'admin' ? '👑 Quản trị viên' : adminUser.role === 'manager' ? '📊 Quản lý' : '👔 Nhân viên'}
+                      </div>
                     </div>
+                    <Link
+                      to="/admin/dashboard"
+                      style={S.dropdownItem}
+                      onClick={() => setShowUserMenu(false)}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+                    >
+                      <span>📊</span>Về trang quản lý
+                    </Link>
+                    <div style={{ borderTop: '1px solid #f3f4f6' }} />
+                    <button
+                      style={{ ...S.dropdownItem, color: '#ef4444' }}
+                      onClick={handleAdminLogout}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#fef2f2'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}
+                    >
+                      <span>🚪</span>Đăng xuất
+                    </button>
                   </div>
-
-                  <button
-                    style={userMenuItemStyle}
-                    onClick={() => { navigate('/admin/dashboard'); setShowUserMenu(false); }}
-                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#f9fafb'; }}
-                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; }}
-                  >
-                    📊 Về trang quản lý
-                  </button>
-
-                  <button
-                    style={{ ...userMenuItemStyle, borderTop: '1px solid #f3f4f6', marginTop: '4px', color: '#ef4444' }}
-                    onClick={handleAdminLogout}
-                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#fef2f2'; }}
-                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; }}
-                  >
-                    🚪 Đăng xuất
-                  </button>
-                </div>
+                )}
               </div>
             ) : (
               <button
-                style={loginButtonStyle}
+                style={S.loginBtn}
                 onClick={() => navigate('/login')}
-                onMouseEnter={(e) => {
-                  e.target.style.transform = 'translateY(-2px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(248,165,194,.4)';
                 }}
-                onMouseLeave={(e) => {
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = 'none';
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
                 }}
               >
                 Đăng nhập
               </button>
             )}
 
-            {/* Mobile Menu Button */}
-            <button
-              style={{
-                ...mobileMenuButtonStyle,
-                display: window.innerWidth <= 768 ? 'block' : 'none'
-              }}
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              ☰
-            </button>
+            {/* Hamburger */}
+            {isMobile && (
+              <button style={S.hamburger} onClick={() => setIsMenuOpen(v => !v)} aria-label="Menu">
+                <BarLine
+                  rotate={isMenuOpen ? '45deg' : '0'}
+                  translateY={isMenuOpen ? '7.5px' : '0'}
+                />
+                <BarLine opacity={isMenuOpen ? 0 : 1} />
+                <BarLine
+                  rotate={isMenuOpen ? '-45deg' : '0'}
+                  translateY={isMenuOpen ? '-7.5px' : '0'}
+                />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Mobile Menu */}
-        <div style={mobileMenuStyle}>
-          {menuItems.map((item, index) => (
-            <Link
-              key={index}
-              to={item.path}
-              style={mobileNavLinkStyle}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
+        {/* Mobile search bar */}
+        {isMobile && showSearch && (
+          <div style={{ padding: '0 16px 12px', animation: 'slideDown .2s ease' }} ref={searchRef}>
+            <form onSubmit={handleSearch} style={{ position: 'relative' }}>
+              <input
+                autoFocus
+                type="text"
+                placeholder="Tìm kiếm sản phẩm..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{
+                  width: '100%', padding: '11px 44px 11px 16px',
+                  borderRadius: '9999px',
+                  border: '1.5px solid #F8A5C2',
+                  fontSize: '15px', outline: 'none',
+                  background: '#fff', color: '#1f2937',
+                  boxShadow: '0 0 0 3px rgba(248,165,194,.15)',
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  position: 'absolute', right: '12px', top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none', border: 'none',
+                  cursor: 'pointer', fontSize: '18px', color: '#F8A5C2',
+                }}
+              >
+                🔍
+              </button>
+            </form>
+          </div>
+        )}
       </header>
 
-      {/* Spacer to prevent content from hiding behind fixed header */}
-      <div style={{ height: '70px' }}></div>
+      {/* Header spacer */}
+      <div style={{ height: '68px' }} />
 
-      <style jsx>{`
-        @media (max-width: 768px) {
-          .desktop-nav {
-            display: none !important;
-          }
-          .mobile-menu-button {
-            display: block !important;
-          }
-          .search-container {
-            display: none !important;
-          }
+      {/* Mobile drawer */}
+      {isMobile && isMenuOpen && (
+        <>
+          <div style={S.mobileOverlay} onClick={() => setIsMenuOpen(false)} />
+          <div style={S.mobileMenu}>
+            {/* Drawer header */}
+            <div style={S.mobileMenuHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '28px' }}>{siteLogo}</span>
+                <span style={{ color: '#fff', fontWeight: '800', fontSize: '18px', fontFamily: 'Playfair Display, Georgia, serif' }}>
+                  {siteName}
+                </span>
+              </div>
+              <button
+                onClick={() => setIsMenuOpen(false)}
+                style={{ background: 'rgba(255,255,255,.2)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >×</button>
+            </div>
+
+            {/* Nav links */}
+            <nav style={{ flex: 1, overflowY: 'auto', paddingTop: '8px' }}>
+              {nav.map(item => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  style={S.mobileNavItem(isActive(item.to))}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <span style={{ fontSize: '20px' }}>{item.icon}</span>
+                  {item.label}
+                  {isActive(item.to) && <span style={{ marginLeft: 'auto', color: '#F8A5C2' }}>✓</span>}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Bottom actions */}
+            <div style={{ padding: '16px', borderTop: '1px solid #f3f4f6', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {customer ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: '#fff5f9', borderRadius: '12px' }}>
+                    <Avatar name={customer.fullName || customer.full_name} size={36} />
+                    <div>
+                      <div style={{ fontWeight: '700', fontSize: '14px', color: '#1f2937' }}>{customer.fullName || customer.full_name}</div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>{customer.email}</div>
+                    </div>
+                  </div>
+                  <Link to="/orders" style={{ ...S.mobileNavItem(false), borderBottom: 'none', borderRadius: '10px' }} onClick={() => setIsMenuOpen(false)}>
+                    <span>📋</span> Đơn hàng của tôi
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    style={{ padding: '12px', borderRadius: '10px', border: '1.5px solid #fca5a5', background: '#fef2f2', color: '#ef4444', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}
+                  >
+                    🚪 Đăng xuất
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => { navigate('/login'); setIsMenuOpen(false); }}
+                  style={{ padding: '14px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg,#F8A5C2,#FF85A2)', color: '#fff', fontWeight: '700', fontSize: '15px', cursor: 'pointer' }}
+                >
+                  Đăng nhập / Đăng ký
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      <style>{`
+        @keyframes slideInFromLeft {
+          from { transform: translateX(-100%); opacity: 0; }
+          to   { transform: translateX(0);      opacity: 1; }
         }
       `}</style>
     </>

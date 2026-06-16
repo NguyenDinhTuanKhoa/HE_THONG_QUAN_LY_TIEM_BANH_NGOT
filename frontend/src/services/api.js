@@ -106,6 +106,14 @@ class ApiService {
     return this.post('/auth/logout');
   }
 
+  async forgotPassword(email) {
+    return this.post('/auth/forgot-password', { email });
+  }
+
+  async resetPassword(token, password) {
+    return this.post('/auth/reset-password', { token, password });
+  }
+
   async register(userData) {
     return this.post('/auth/register', userData);
   }
@@ -127,9 +135,36 @@ class ApiService {
     return this.delete(`/accounts/${id}`);
   }
 
+  // Upload product image (multipart/form-data)
+  async uploadProductImage(file) {
+    const formData = new FormData();
+    formData.append('featured_image', file);
+
+    const headers = {};
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const u = JSON.parse(user);
+        if (u.token) headers.Authorization = `Bearer ${u.token}`;
+      } catch {}
+    }
+
+    const response = await fetch(`${this.baseURL}/products/upload-image`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || `Upload failed: ${response.status}`);
+    }
+    return response.json();
+  }
+
   // Products
-  async getProducts() {
-    return this.get('/products');
+  async getProducts(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.get(`/products${qs ? '?' + qs : ''}`);
   }
 
   async getProduct(id) {
