@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerHeader from '../../components/customer/Header';
+import apiService from '../../services/api';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ const ProfilePage = () => {
     // Kiểm tra đăng nhập
     const customerData = localStorage.getItem('customer');
     if (!customerData) {
-      navigate('/customer/login');
+      navigate('/login');
       return;
     }
 
@@ -36,7 +37,7 @@ const ProfilePage = () => {
         gender: parsedCustomer.gender || ''
       });
     } catch (error) {
-      navigate('/customer/login');
+      navigate('/login');
     }
   }, [navigate]);
 
@@ -76,56 +77,22 @@ const ProfilePage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) return;
 
     try {
-      // Cập nhật thông tin customer
-      const updatedCustomer = {
-        ...customer,
-        ...formData,
-        lastUpdated: new Date().toISOString()
-      };
+      const res = await apiService.updateCustomerProfile({
+        fullName: formData.fullName,
+        phone: formData.phone,
+        address: formData.address,
+        date_of_birth: formData.birthDate || null,
+        gender: formData.gender || null,
+      });
 
-      // Lưu vào localStorage.customer
+      // Cập nhật localStorage để Header và các trang khác đọc được
+      const existing = JSON.parse(localStorage.getItem('customer') || '{}');
+      const updatedCustomer = { ...existing, ...res.customer };
       localStorage.setItem('customer', JSON.stringify(updatedCustomer));
-
-      // Cập nhật customerAccounts để admin thấy thay đổi
-      const customerAccounts = JSON.parse(localStorage.getItem('customerAccounts') || '{}');
-      if (customerAccounts[updatedCustomer.email]) {
-        customerAccounts[updatedCustomer.email] = {
-          ...customerAccounts[updatedCustomer.email],
-          name: formData.fullName,
-          phone: formData.phone,
-          address: formData.address,
-          birthDate: formData.birthDate,
-          gender: formData.gender,
-          lastUpdated: new Date().toISOString()
-        };
-        localStorage.setItem('customerAccounts', JSON.stringify(customerAccounts));
-      }
-
-      // Tạo notification cho admin
-      const notifications = JSON.parse(localStorage.getItem('adminNotifications') || '[]');
-      const newNotification = {
-        id: Date.now(),
-        type: 'customer_profile_update',
-        title: 'Khách hàng cập nhật thông tin',
-        message: `${formData.fullName} đã cập nhật thông tin cá nhân`,
-        customerEmail: updatedCustomer.email,
-        customerName: formData.fullName,
-        timestamp: new Date().toISOString(),
-        read: false,
-        priority: 'normal'
-      };
-      notifications.unshift(newNotification);
-
-      // Giữ tối đa 100 notifications
-      if (notifications.length > 100) {
-        notifications.splice(100);
-      }
-
-      localStorage.setItem('adminNotifications', JSON.stringify(notifications));
 
       setCustomer(updatedCustomer);
       setIsEditing(false);

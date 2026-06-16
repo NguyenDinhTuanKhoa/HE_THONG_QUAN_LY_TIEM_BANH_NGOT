@@ -9,7 +9,7 @@ const AdminAuthRedirect = () => {
     
     if (!user) {
       // Nếu chưa đăng nhập, chuyển đến trang login
-      navigate('/admin/login', { replace: true });
+      navigate('/login', { replace: true });
     } else {
       try {
         const userData = JSON.parse(user); // Kiểm tra dữ liệu hợp lệ
@@ -31,7 +31,7 @@ const AdminAuthRedirect = () => {
       } catch (error) {
         // Nếu dữ liệu không hợp lệ, xóa và chuyển đến login
         localStorage.removeItem('user');
-        navigate('/admin/login', { replace: true });
+        navigate('/login', { replace: true });
       }
     }
   }, [navigate]);

@@ -37,16 +37,33 @@ const ShopPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const loadProducts = () => {
-    const savedProducts = JSON.parse(localStorage.getItem('bakeryProducts') || '[]');
+  const loadProducts = async () => {
+    try {
+      const res = await import('../../services/api').then(m => m.default.getProducts({ status: 'active', limit: 100 }));
+      const apiProducts = (res.data || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.sale_price || p.price,
+        category: p.category_id,
+        category_name: p.category_name,
+        image: p.featured_image,
+        description: p.short_description || p.description,
+        rating: p.rating_average || 0,
+        inStock: p.stock_quantity > 0,
+        isNew: false,
+        isHot: p.is_bestseller,
+        isFeatured: p.is_featured,
+        stock: p.stock_quantity,
+      }));
+      setProducts(apiProducts);
+    } catch {
+      // fallback: không dùng mock, hiện mảng rỗng để tránh misleading data
+      setProducts([]);
+    }
+  };
 
-    // Filter only available products with stock
-    const availableProducts = savedProducts.filter(product =>
-      product.status === 'available' && product.stock > 0
-    );
-
-    // If no products from admin, show empty state
-    const mockProducts = availableProducts.length > 0 ? availableProducts : [
+  const _loadProductsFallback_UNUSED = () => {
+    const _unused = [
       {
         id: 1,
         name: 'Bánh kem dâu tây',
@@ -115,32 +132,28 @@ const ShopPage = () => {
     setProducts(mockProducts);
   };
 
-  const loadCategories = () => {
-    // Load categories from CategoryManagement
-    const savedCategories = JSON.parse(localStorage.getItem('bakeryCategories') || '[]');
-    const activeCategories = savedCategories.filter(c => c.status === 'active');
-
-    // Get current products for count calculation
-    const currentProducts = JSON.parse(localStorage.getItem('bakeryProducts') || '[]')
-      .filter(product => product.status === 'available' && product.stock > 0);
-
-    const categoriesWithCount = [
-      { id: 'all', name: 'Tất cả', icon: '🛍️', count: currentProducts.length },
-      ...activeCategories.map(cat => ({
-        id: cat.id,
-        name: cat.name,
-        icon: cat.icon,
-        count: currentProducts.filter(p => p.category.toString() === cat.id.toString()).length
-      }))
-    ];
-
-    setCategories(categoriesWithCount);
+  const loadCategories = async () => {
+    try {
+      const res = await import('../../services/api').then(m => m.default.getCategories());
+      const apiCategories = (res.data || []).filter(c => c.status === 'active');
+      const categoriesWithCount = [
+        { id: 'all', name: 'Tất cả', icon: '🛍️', count: 0 },
+        ...apiCategories.map(cat => ({
+          id: cat.id,
+          name: cat.name,
+          icon: cat.icon || '🎂',
+          count: cat.product_count || 0,
+        }))
+      ];
+      setCategories(categoriesWithCount);
+    } catch {
+      setCategories([{ id: 'all', name: 'Tất cả', icon: '🛍️', count: 0 }]);
+    }
   };
 
   const getCategoryLabel = (categoryId) => {
-    const savedCategories = JSON.parse(localStorage.getItem('bakeryCategories') || '[]');
-    const category = savedCategories.find(c => c.id.toString() === categoryId.toString());
-    return category ? `${category.icon} ${category.name}` : 'Danh mục';
+    const cat = categories.find(c => c.id?.toString() === categoryId?.toString());
+    return cat ? `${cat.icon} ${cat.name}` : 'Danh mục';
   };
 
   // Filter products

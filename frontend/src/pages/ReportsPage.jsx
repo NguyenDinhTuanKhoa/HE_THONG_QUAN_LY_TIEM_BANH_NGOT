@@ -502,121 +502,69 @@ const ReportsPage = () => {
     printWindow.document.close();
   };
 
-  const loadReportData = () => {
-    const orders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-    const customers = JSON.parse(localStorage.getItem('customerAccounts') || '{}');
-    
-    // Calculate date range based on selected period
-    const now = new Date();
-    let startDate;
-    
-    switch (selectedPeriod) {
-      case 'week':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case 'quarter':
-        startDate = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
-        break;
-      case 'year':
-        startDate = new Date(now.getFullYear(), 0, 1);
-        break;
-      default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
+  const loadReportData = async () => {
+    try {
+      const { default: apiService } = await import('../services/api');
+      const periodMap = { week: 'weekly', month: 'monthly', quarter: 'monthly', year: 'monthly' };
+      const now = new Date();
 
-    // Filter orders by period
-    const periodOrders = orders.filter(order => 
-      new Date(order.orderDate) >= startDate
-    );
-
-    // Revenue calculations
-    const totalRevenue = periodOrders.reduce((sum, order) => sum + order.total, 0);
-    const previousPeriodOrders = orders.filter(order => {
-      const orderDate = new Date(order.orderDate);
-      const prevStart = new Date(startDate.getTime() - (now.getTime() - startDate.getTime()));
-      return orderDate >= prevStart && orderDate < startDate;
-    });
-    const previousRevenue = previousPeriodOrders.reduce((sum, order) => sum + order.total, 0);
-    const revenueGrowth = previousRevenue > 0 ? ((totalRevenue - previousRevenue) / previousRevenue) * 100 : 0;
-
-    // Orders statistics
-    const totalOrders = periodOrders.length;
-    const completedOrders = periodOrders.filter(order => order.status === 'delivered').length;
-    const pendingOrders = periodOrders.filter(order => order.status === 'pending').length;
-    const cancelledOrders = periodOrders.filter(order => order.status === 'cancelled').length;
-
-    // Product statistics
-    const productSales = {};
-    periodOrders.forEach(order => {
-      order.items.forEach(item => {
-        if (productSales[item.name]) {
-          productSales[item.name].quantity += item.quantity;
-          productSales[item.name].revenue += item.price * item.quantity;
-        } else {
-          productSales[item.name] = {
-            name: item.name,
-            quantity: item.quantity,
-            revenue: item.price * item.quantity,
-            price: item.price
-          };
-        }
-      });
-    });
-
-    const topSelling = Object.values(productSales)
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 5);
-
-    // Customer statistics
-    const totalCustomers = Object.keys(customers).length + 3; // +3 for demo accounts
-    const newCustomers = Object.values(customers).filter(customer => {
-      // Mock: assume customers joined this period
-      return Math.random() > 0.7; // 30% are new
-    }).length;
-
-    // Revenue chart data (mock)
-    const chartData = [];
-    const daysInPeriod = Math.ceil((now - startDate) / (1000 * 60 * 60 * 24));
-    for (let i = 0; i < Math.min(daysInPeriod, 30); i++) {
-      const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
-      const dayRevenue = Math.random() * 2000000 + 500000; // Mock data
-      chartData.push({
-        date: date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
-        revenue: dayRevenue
-      });
-    }
-
-    setReportData({
-      revenue: {
-        total: totalRevenue,
-        growth: revenueGrowth,
-        chart: chartData
-      },
-      orders: {
-        total: totalOrders,
-        completed: completedOrders,
-        pending: pendingOrders,
-        cancelled: cancelledOrders
-      },
-      products: {
-        topSelling,
-        lowStock: [
-          { name: 'Bánh kem dâu tây', stock: 5, minStock: 10 },
-          { name: 'Cupcake vanilla', stock: 3, minStock: 15 },
-          { name: 'Bánh macaron', stock: 8, minStock: 20 }
-        ],
-        totalSold: Object.values(productSales).reduce((sum, product) => sum + product.quantity, 0)
-      },
-      customers: {
-        total: totalCustomers,
-        new: newCustomers,
-        returning: totalCustomers - newCustomers,
-        retention: totalCustomers > 0 ? ((totalCustomers - newCustomers) / totalCustomers) * 100 : 0
+      let date_from;
+      switch (selectedPeriod) {
+        case 'week':
+          date_from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          break;
+        case 'quarter':
+          date_from = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1).toISOString().split('T')[0];
+          break;
+        case 'year':
+          date_from = `${now.getFullYear()}-01-01`;
+          break;
+        default: // month
+          date_from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
       }
-    });
+
+      const res = await apiService.getReports({
+        period: periodMap[selectedPeriod] || 'monthly',
+        date_from,
+        date_to: now.toISOString().split('T')[0],
+      });
+      const d = res.data;
+      const s = d.summary || {};
+
+      setReportData({
+        revenue: {
+          total: Number(s.total_revenue || 0),
+          growth: 0,
+          chart: (d.revenue_data || []).map(r => ({
+            date: r.period,
+            revenue: Number(r.total_revenue || 0),
+          })),
+        },
+        orders: {
+          total: Number(s.total_orders || 0),
+          completed: 0,
+          pending: 0,
+          cancelled: 0,
+        },
+        products: {
+          topSelling: (d.top_products || []).slice(0, 5).map(p => ({
+            name: p.name,
+            quantity: Number(p.total_quantity || 0),
+            revenue: Number(p.total_revenue || 0),
+          })),
+          lowStock: [],
+          totalSold: (d.top_products || []).reduce((s, p) => s + Number(p.total_quantity || 0), 0),
+        },
+        customers: {
+          total: Number(s.unique_customers || 0),
+          new: 0,
+          returning: 0,
+          retention: 0,
+        },
+      });
+    } catch (error) {
+      console.error('Error loading report:', error);
+    }
   };
 
   // Hàm gửi email báo cáo

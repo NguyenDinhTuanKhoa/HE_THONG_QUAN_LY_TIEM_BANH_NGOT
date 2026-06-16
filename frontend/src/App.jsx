@@ -7,25 +7,24 @@ import CustomerRoutes from './routes/CustomerRoutes';
 
 // Pages
 import CustomerLoginPage from './pages/customer/CustomerLoginPage';
-import LoginForm from './pages/LoginForm';
 
 function App() {
   return (
     <Routes>
-      {/* Customer Routes */}
-      <Route path="/*" element={<CustomerRoutes />} />
-      
-      {/* Customer Login - Public */}
-      <Route path="/customer/login" element={<CustomerLoginPage />} />
-      
-      {/* Admin Routes */}
-      <Route path="/admin/*" element={<AdminRoutes />} />
-      <Route path="/admin/login" element={<LoginForm />} />
+      {/* Trang đăng nhập CHUNG - tự nhận diện khách hàng / admin / nhân viên */}
+      <Route path="/login" element={<CustomerLoginPage />} />
 
-      {/* Legacy redirects */}
-      <Route path="/login" element={<Navigate to="/admin/login" replace />} />
+      {/* Admin Routes (được bảo vệ; chưa login sẽ tự đá về /login) */}
+      <Route path="/admin/*" element={<AdminRoutes />} />
+
+      {/* Các đường login cũ → gộp về /login */}
+      <Route path="/customer/login" element={<Navigate to="/login" replace />} />
+      <Route path="/admin/login" element={<Navigate to="/login" replace />} />
       <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
       <Route path="/dashboard/*" element={<Navigate to="/admin/dashboard" replace />} />
+
+      {/* Customer Routes (đặt cuối cùng vì bắt mọi path còn lại) */}
+      <Route path="/*" element={<CustomerRoutes />} />
     </Routes>
   );
 }

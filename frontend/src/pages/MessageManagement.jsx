@@ -26,17 +26,35 @@ const MessageManagement = () => {
     filterMessages();
   }, [searchTerm, statusFilter, priorityFilter, messages]);
 
-  const loadMessages = () => {
-    const savedMessages = JSON.parse(localStorage.getItem('customerMessages') || '[]');
-    setMessages(savedMessages);
-    
-    // Calculate stats
-    const total = savedMessages.length;
-    const newCount = savedMessages.filter(m => m.status === 'new').length;
-    const readCount = savedMessages.filter(m => m.status === 'read').length;
-    const repliedCount = savedMessages.filter(m => m.status === 'replied').length;
-    
-    setStats({ total, new: newCount, read: readCount, replied: repliedCount });
+  const loadMessages = async () => {
+    try {
+      const { default: apiService } = await import('../services/api');
+      const res = await apiService.getMessages({ limit: 100 });
+      // Map sang shape cũ mà template dùng
+      const mapped = (res.data || []).map(m => ({
+        id: m.id,
+        name: m.customer_name,
+        email: m.customer_email,
+        phone: m.customer_phone,
+        subject: m.subject,
+        message: m.message,
+        status: m.status,
+        type: m.type,
+        priority: 'normal',
+        createdAt: m.created_at,
+        reply_message: m.reply_message,
+        replied_by_name: m.replied_by_name,
+        replied_at: m.replied_at,
+      }));
+      setMessages(mapped);
+      const s = res.meta?.stats || {};
+      setStats({
+        total: Number(s.total || mapped.length),
+        new: Number(s.new_count || mapped.filter(m => m.status === 'new').length),
+        read: Number(s.read_count || mapped.filter(m => m.status === 'read').length),
+        replied: Number(s.replied_count || mapped.filter(m => m.status === 'replied').length),
+      });
+    } catch { setMessages([]); }
   };
 
   const filterMessages = () => {
@@ -67,29 +85,26 @@ const MessageManagement = () => {
     setFilteredMessages(filtered);
   };
 
-  const handleStatusChange = (messageId, newStatus) => {
-    const updatedMessages = messages.map(message =>
-      message.id === messageId ? { ...message, status: newStatus } : message
-    );
-    setMessages(updatedMessages);
-    localStorage.setItem('customerMessages', JSON.stringify(updatedMessages));
-    loadMessages(); // Reload to update stats
+  const handleStatusChange = async (messageId, newStatus) => {
+    try {
+      const { default: apiService } = await import('../services/api');
+      await apiService.updateMessageStatus(messageId, newStatus);
+      loadMessages();
+    } catch (error) { alert(error.message || 'Lỗi khi cập nhật trạng thái'); }
   };
 
   const handlePriorityChange = (messageId, newPriority) => {
-    const updatedMessages = messages.map(message =>
-      message.id === messageId ? { ...message, priority: newPriority } : message
-    );
-    setMessages(updatedMessages);
-    localStorage.setItem('customerMessages', JSON.stringify(updatedMessages));
+    // Priority không có trong DB — chỉ cập nhật local state
+    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, priority: newPriority } : m));
   };
 
-  const handleDelete = (messageId) => {
+  const handleDelete = async (messageId) => {
     if (confirm('Bạn có chắc muốn xóa tin nhắn này?')) {
-      const updatedMessages = messages.filter(message => message.id !== messageId);
-      setMessages(updatedMessages);
-      localStorage.setItem('customerMessages', JSON.stringify(updatedMessages));
-      loadMessages(); // Reload to update stats
+      try {
+        const { default: apiService } = await import('../services/api');
+        await apiService.deleteMessage(messageId);
+        loadMessages();
+      } catch (error) { alert(error.message || 'Lỗi khi xóa tin nhắn'); }
     }
   };
 

@@ -77,103 +77,38 @@ const CustomerManagement = () => {
     filterCustomers();
   }, [searchTerm, customers]);
 
-  const loadCustomers = () => {
-    // Load from localStorage
-    const accounts = JSON.parse(localStorage.getItem('customerAccounts') || '{}');
-    const orders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
+  const loadCustomers = async () => {
+    try {
+      const { default: apiService } = await import('../services/api');
+      const res = await apiService.getCustomers({ limit: 100 });
+      const customerList = (res.data || []).map(c => ({
+        id: c.id,
+        email: c.email,
+        name: c.full_name,
+        phone: c.phone,
+        address: c.address,
+        joinDate: c.created_at,
+        totalOrders: c.total_orders || 0,
+        totalSpent: Number(c.total_spent || 0),
+        lastOrderDate: c.last_order_date || null,
+        status: c.status || 'active',
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(c.full_name)}&background=F8A5C2&color=fff&size=40`,
+      }));
+      setCustomers(customerList);
 
-    // Lấy thông tin customer hiện tại đang đăng nhập (nếu có) để cập nhật real-time
-    const currentCustomer = localStorage.getItem('customer');
-    let currentCustomerData = null;
-    if (currentCustomer) {
-      try {
-        currentCustomerData = JSON.parse(currentCustomer);
-      } catch (error) {
-        console.error('Error parsing current customer data:', error);
-      }
-    }
+      const now = new Date();
+      const newThisMonth = customerList.filter(c => {
+        const d = new Date(c.joinDate);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }).length;
 
-    // Demo accounts với ngày tham gia thực tế
-    const now = new Date();
-    const demoAccounts = {
-      'customer1@email.com': {
-        password: '123456',
-        name: 'Nguyễn Văn A',
-        phone: '0901234567',
-        joinDate: new Date(now.getFullYear(), now.getMonth() - 2, 15).toISOString() // 2 tháng trước
-      },
-      'customer2@email.com': {
-        password: '123456',
-        name: 'Trần Thị B',
-        phone: '0912345678',
-        joinDate: new Date(now.getFullYear(), now.getMonth() - 1, 8).toISOString() // 1 tháng trước
-      },
-      'customer3@email.com': {
-        password: '123456',
-        name: 'Lê Văn C',
-        phone: '0923456789',
-        joinDate: new Date(now.getFullYear(), now.getMonth(), 3).toISOString() // Tháng này
-      }
-    };
-
-    // Combine demo and real accounts
-    const allAccounts = { ...demoAccounts, ...accounts };
-
-    // Cập nhật thông tin từ customer hiện tại đang đăng nhập (nếu có)
-    if (currentCustomerData && currentCustomerData.email && allAccounts[currentCustomerData.email]) {
-      allAccounts[currentCustomerData.email] = {
-        ...allAccounts[currentCustomerData.email],
-        name: currentCustomerData.fullName || allAccounts[currentCustomerData.email].name,
-        phone: currentCustomerData.phone || allAccounts[currentCustomerData.email].phone,
-        address: currentCustomerData.address,
-        birthDate: currentCustomerData.birthDate,
-        gender: currentCustomerData.gender,
-        lastUpdated: currentCustomerData.lastUpdated || allAccounts[currentCustomerData.email].lastUpdated
-      };
-    }
-    
-    // Transform to customer list with additional info
-    const customerList = Object.entries(allAccounts).map(([email, data]) => {
-      const customerOrders = orders.filter(order => order.customerEmail === email);
-      const totalSpent = customerOrders.reduce((sum, order) => sum + order.total, 0);
-      const lastOrderDate = customerOrders.length > 0
-        ? Math.max(...customerOrders.map(order => new Date(order.orderDate).getTime()))
-        : null;
-
-      // Sử dụng ngày tham gia từ dữ liệu hoặc tạo ngày mặc định
-      const joinDate = data.joinDate || new Date().toISOString();
-
-      return {
-        id: email,
-        email,
-        name: data.name,
-        phone: data.phone,
-        joinDate,
-        lastUpdated: data.lastUpdated || null, // Thêm thông tin cập nhật cuối
-        totalOrders: customerOrders.length,
-        totalSpent,
-        lastOrderDate: lastOrderDate ? new Date(lastOrderDate).toISOString() : null,
-        status: customerOrders.length > 0 ? 'active' : 'inactive',
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=F8A5C2&color=fff&size=40`
-      };
-    });
-
-    setCustomers(customerList);
-
-    // Calculate stats
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const newThisMonth = customerList.filter(customer => {
-      const joinDate = new Date(customer.joinDate);
-      return joinDate.getMonth() === currentMonth && joinDate.getFullYear() === currentYear;
-    }).length;
-
-    setStats({
-      totalCustomers: customerList.length,
-      activeCustomers: customerList.filter(c => c.status === 'active').length,
-      newThisMonth,
-      totalOrders: orders.length
-    });
+      setStats({
+        totalCustomers: customerList.length,
+        activeCustomers: customerList.filter(c => c.status === 'active').length,
+        newThisMonth,
+        totalOrders: customerList.reduce((s, c) => s + c.totalOrders, 0),
+      });
+    } catch { setCustomers([]); }
   };
 
   const refreshData = () => {

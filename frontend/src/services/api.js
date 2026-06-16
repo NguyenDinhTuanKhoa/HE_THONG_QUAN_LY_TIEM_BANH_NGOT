@@ -149,8 +149,16 @@ class ApiService {
   }
 
   // Orders
-  async getOrders() {
-    return this.get('/orders');
+  async getOrders(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.get(`/orders${qs ? '?' + qs : ''}`);
+  }
+
+  async updateOrder(id, data) {
+    if (data.status && Object.keys(data).length === 1) {
+      return this.put(`/orders/${id}/status`, { status: data.status });
+    }
+    return this.put(`/orders/${id}`, data);
   }
 
   async getOrder(id) {
@@ -159,10 +167,6 @@ class ApiService {
 
   async createOrder(orderData) {
     return this.post('/orders', orderData);
-  }
-
-  async updateOrder(id, orderData) {
-    return this.put(`/orders/${id}`, orderData);
   }
 
   async deleteOrder(id) {
@@ -186,9 +190,36 @@ class ApiService {
     return this.delete(`/categories/${id}`);
   }
 
-  // Customers
-  async getCustomers() {
-    return this.get('/customers');
+  // Customer authentication & profile
+  async customerRegister(data) {
+    return this.post('/customers/register', data);
+  }
+
+  async customerLogin(credentials) {
+    return this.post('/customers/login', credentials);
+  }
+
+  async getCustomerProfile() {
+    return this.get('/customers/me');
+  }
+
+  async updateCustomerProfile(data) {
+    return this.patch('/customers/me', data);
+  }
+
+  async getCustomerOrders(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.get(`/customers/me/orders${qs ? '?' + qs : ''}`);
+  }
+
+  async getCustomerOrderById(id) {
+    return this.get(`/customers/me/orders/${id}`);
+  }
+
+  // Customers (admin)
+  async getCustomers(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.get(`/customers${qs ? '?' + qs : ''}`);
   }
 
   async getCustomer(id) {
@@ -204,8 +235,13 @@ class ApiService {
   }
 
   // Coupons
-  async getCoupons() {
-    return this.get('/coupons');
+  async getCoupons(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.get(`/coupons${qs ? '?' + qs : ''}`);
+  }
+
+  async getCoupon(id) {
+    return this.get(`/coupons/${id}`);
   }
 
   async createCoupon(couponData) {
@@ -220,40 +256,61 @@ class ApiService {
     return this.delete(`/coupons/${id}`);
   }
 
+  async validateCoupon(code, order_amount, customer_id) {
+    return this.post('/coupons/validate', { code, order_amount, customer_id });
+  }
+
   // Messages
-  async getMessages() {
-    return this.get('/messages');
+  async getMessages(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.get(`/messages${qs ? '?' + qs : ''}`);
+  }
+
+  async getMessage(id) {
+    return this.get(`/messages/${id}`);
   }
 
   async createMessage(messageData) {
     return this.post('/messages', messageData);
   }
 
-  async updateMessage(id, messageData) {
-    return this.put(`/messages/${id}`, messageData);
+  async updateMessageStatus(id, status) {
+    return this.patch(`/messages/${id}/status`, { status });
+  }
+
+  async replyMessage(id, reply_message) {
+    return this.post(`/messages/${id}/reply`, { reply_message });
   }
 
   async deleteMessage(id) {
     return this.delete(`/messages/${id}`);
   }
 
-  // Reports
-  async getReports() {
-    return this.get('/reports');
+  // Dashboard & Reports (admin)
+  async getDashboardStats() {
+    return this.get('/admin/dashboard/stats');
   }
 
-  async getSalesReport(params) {
-    const queryString = new URLSearchParams(params).toString();
-    return this.get(`/reports/sales?${queryString}`);
+  async getReports(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.get(`/admin/reports${qs ? '?' + qs : ''}`);
   }
 
   // Website Settings
   async getSettings() {
-    return this.get('/settings');
+    return this.get('/admin/settings');
+  }
+
+  async getAllSettings() {
+    return this.get('/admin/settings/all');
+  }
+
+  async getPublicSettings() {
+    return this.get('/admin/settings');
   }
 
   async updateSettings(settingsData) {
-    return this.put('/settings', settingsData);
+    return this.put('/admin/settings', settingsData);
   }
 }
 

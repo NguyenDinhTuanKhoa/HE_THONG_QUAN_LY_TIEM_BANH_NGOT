@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerHeader from '../../components/customer/Header';
 import { useCart } from '../../context/CartContext';
+import apiService from '../../services/api';
 
 const OrderHistoryPage = () => {
   const navigate = useNavigate();
@@ -15,117 +16,51 @@ const OrderHistoryPage = () => {
     // Kiểm tra đăng nhập
     const customerData = localStorage.getItem('customer');
     if (!customerData) {
-      navigate('/customer/login');
+      navigate('/login');
       return;
     }
 
     try {
       const parsedCustomer = JSON.parse(customerData);
       setCustomer(parsedCustomer);
-      loadOrders(parsedCustomer.email);
+      loadOrders();
     } catch (error) {
-      navigate('/customer/login');
+      navigate('/login');
     }
   }, [navigate]);
 
-  const loadOrders = (customerEmail) => {
-    // Lấy đơn hàng từ localStorage
-    const allOrders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-    const customerOrders = allOrders.filter(order => order.customerEmail === customerEmail);
-    
-    // Nếu chưa có đơn hàng, tạo mock data
-    if (customerOrders.length === 0) {
-      const mockOrders = [
-        {
-          id: 'ORD001',
-          customerEmail: customerEmail,
-          orderDate: '2024-01-15T10:30:00Z',
-          status: 'delivered',
-          items: [
-            {
-              id: 1,
-              name: 'Bánh kem dâu tây',
-              price: 250000,
-              quantity: 1,
-              image: 'https://via.placeholder.com/80x80?text=Bánh+kem+dâu'
-            },
-            {
-              id: 2,
-              name: 'Cupcake chocolate',
-              price: 45000,
-              quantity: 2,
-              image: 'https://via.placeholder.com/80x80?text=Cupcake+chocolate'
-            }
-          ],
-          subtotal: 340000,
-          shippingFee: 30000,
-          total: 370000,
-          shippingAddress: {
-            fullName: customer?.fullName || 'Khách hàng',
-            phone: customer?.phone || '0123456789',
-            address: '123 Đường ABC, Phường XYZ, Quận 1, TP.HCM'
-          },
-          paymentMethod: 'cod',
-          deliveryMethod: 'home_delivery'
+  const loadOrders = async () => {
+    try {
+      const res = await apiService.getCustomerOrders({ limit: 50 });
+      // Map từ schema DB sang shape mà template đang dùng
+      const mapped = (res.data || []).map(o => ({
+        id: o.id,
+        orderNumber: o.order_number,
+        customerEmail: o.customer_email,
+        orderDate: o.created_at,
+        status: o.status,
+        items: (o.items || []).map(i => ({
+          id: i.product_id,
+          name: i.product_name,
+          price: i.unit_price,
+          quantity: i.quantity,
+          image: i.product_image,
+        })),
+        subtotal: o.subtotal,
+        shippingFee: o.shipping_amount,
+        total: o.total_amount,
+        shippingAddress: {
+          fullName: o.customer_name,
+          phone: o.customer_phone,
+          address: o.customer_address,
         },
-        {
-          id: 'ORD002',
-          customerEmail: customerEmail,
-          orderDate: '2024-01-10T14:20:00Z',
-          status: 'processing',
-          items: [
-            {
-              id: 3,
-              name: 'Bánh tiramisu',
-              price: 180000,
-              quantity: 1,
-              image: 'https://via.placeholder.com/80x80?text=Tiramisu'
-            }
-          ],
-          subtotal: 180000,
-          shippingFee: 30000,
-          total: 210000,
-          shippingAddress: {
-            fullName: customer?.fullName || 'Khách hàng',
-            phone: customer?.phone || '0123456789',
-            address: '456 Đường DEF, Phường ABC, Quận 2, TP.HCM'
-          },
-          paymentMethod: 'cod',
-          deliveryMethod: 'express_delivery'
-        },
-        {
-          id: 'ORD003',
-          customerEmail: customerEmail,
-          orderDate: '2024-01-05T09:15:00Z',
-          status: 'cancelled',
-          items: [
-            {
-              id: 4,
-              name: 'Bánh croissant',
-              price: 35000,
-              quantity: 3,
-              image: 'https://via.placeholder.com/80x80?text=Croissant'
-            }
-          ],
-          subtotal: 105000,
-          shippingFee: 30000,
-          total: 135000,
-          shippingAddress: {
-            fullName: customer?.fullName || 'Khách hàng',
-            phone: customer?.phone || '0123456789',
-            address: '789 Đường GHI, Phường DEF, Quận 3, TP.HCM'
-          },
-          paymentMethod: 'cod',
-          deliveryMethod: 'store_pickup'
-        }
-      ];
-
-      // Lưu mock orders
-      const updatedOrders = [...allOrders, ...mockOrders];
-      localStorage.setItem('customerOrders', JSON.stringify(updatedOrders));
-      setOrders(mockOrders);
-    } else {
-      setOrders(customerOrders);
+        paymentMethod: o.payment_method,
+        deliveryMethod: o.delivery_method,
+        item_count: o.item_count,
+      }));
+      setOrders(mapped);
+    } catch {
+      setOrders([]);
     }
   };
 

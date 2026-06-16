@@ -64,6 +64,10 @@ try {
   const productRoutes = require('./routes/productRoutes');
   const categoryRoutes = require('./routes/categoryRoutes');
   const orderRoutes = require('./routes/orderRoutes');
+  const customerRoutes = require('./routes/customerRoutes');
+  const couponRoutes = require('./routes/couponRoutes');
+  const messageRoutes = require('./routes/messageRoutes');
+  const adminRoutes = require('./routes/adminRoutes');
 
   // API routes
   const apiPrefix = process.env.API_PREFIX || '/api';
@@ -72,6 +76,10 @@ try {
   app.use(`${apiPrefix}/products`, productRoutes);
   app.use(`${apiPrefix}/categories`, categoryRoutes);
   app.use(`${apiPrefix}/orders`, orderRoutes);
+  app.use(`${apiPrefix}/customers`, customerRoutes);
+  app.use(`${apiPrefix}/coupons`, couponRoutes);
+  app.use(`${apiPrefix}/messages`, messageRoutes);
+  app.use(`${apiPrefix}/admin`, adminRoutes);
 
   console.log('✅ All API routes loaded successfully');
 } catch (error) {

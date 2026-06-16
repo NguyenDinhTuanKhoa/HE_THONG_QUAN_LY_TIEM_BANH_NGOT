@@ -3,19 +3,24 @@ import { Navigate, useLocation } from 'react-router-dom';
 
 const CustomerProtectedRoute = ({ children }) => {
   const location = useLocation();
-  const customer = localStorage.getItem('customer');
 
+  // Admin/nhân viên được phép xem trang khách hàng
+  const userRaw = localStorage.getItem('user');
+  if (userRaw) {
+    try { JSON.parse(userRaw); return children; } catch { localStorage.removeItem('user'); }
+  }
+
+  const customer = localStorage.getItem('customer');
   if (!customer) {
-    return <Navigate to="/customer/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   try {
-    JSON.parse(customer); // Kiểm tra dữ liệu customer có hợp lệ không
+    JSON.parse(customer);
     return children;
-  } catch (error) {
-    // Nếu dữ liệu customer bị lỗi, xóa và chuyển về login
+  } catch {
     localStorage.removeItem('customer');
-    return <Navigate to="/customer/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 };
 

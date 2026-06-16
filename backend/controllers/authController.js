@@ -42,19 +42,20 @@ exports.login = async (req, res) => {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'Strict',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Lax',
       maxAge: 24 * 60 * 60 * 1000,
     });
 
-    res.json({ 
-      message: 'Đăng nhập thành công!', 
-      user: { 
+    res.json({
+      message: 'Đăng nhập thành công!',
+      token,
+      user: {
         id: account.id,
         username: account.username,
         email: account.email,
         role: account.role
-      } 
+      }
     });
   } catch (err) {
     console.error(err);

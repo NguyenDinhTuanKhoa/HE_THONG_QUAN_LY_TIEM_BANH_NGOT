@@ -33,9 +33,29 @@ const CouponManagement = () => {
     filterCoupons();
   }, [searchTerm, statusFilter, coupons]);
 
-  const loadCoupons = () => {
-    const savedCoupons = JSON.parse(localStorage.getItem('discountCoupons') || '[]');
-    setCoupons(savedCoupons);
+  const loadCoupons = async () => {
+    try {
+      const { default: apiService } = await import('../services/api');
+      const res = await apiService.getCoupons({ limit: 100 });
+      // Map từ DB schema sang shape mà template đang dùng
+      const mapped = (res.data || []).map(c => ({
+        id: c.id,
+        code: c.code,
+        name: c.name,
+        description: c.description || '',
+        type: c.type === 'fixed_amount' ? 'fixed' : 'percentage',
+        value: Number(c.value),
+        minOrderValue: Number(c.minimum_amount || 0),
+        maxDiscount: Number(c.maximum_discount || 0),
+        usageLimit: c.usage_limit || 0,
+        usedCount: c.used_count || 0,
+        startDate: c.valid_from,
+        endDate: c.valid_until,
+        isActive: c.status === 'active',
+        createdAt: c.created_at,
+      }));
+      setCoupons(mapped);
+    } catch { setCoupons([]); }
   };
 
   const filterCoupons = () => {
@@ -77,45 +97,36 @@ const CouponManagement = () => {
     setFilteredCoupons(filtered);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    const couponData = {
-      ...formData,
-      id: editingCoupon ? editingCoupon.id : Date.now(),
-      createdAt: editingCoupon ? editingCoupon.createdAt : new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      code: formData.code.toUpperCase(),
-      value: parseFloat(formData.value),
-      minOrderValue: parseFloat(formData.minOrderValue) || 0,
-      maxDiscount: parseFloat(formData.maxDiscount) || 0,
-      usageLimit: parseInt(formData.usageLimit) || 0,
-      startDate: new Date(formData.startDate).toISOString(),
-      endDate: new Date(formData.endDate).toISOString(),
-    };
-
-    let updatedCoupons;
-    if (editingCoupon) {
-      updatedCoupons = coupons.map(coupon =>
-        coupon.id === editingCoupon.id ? couponData : coupon
-      );
-    } else {
-      // Check if code already exists
-      if (coupons.some(coupon => coupon.code === couponData.code)) {
-        alert('Mã giảm giá này đã tồn tại!');
-        return;
+    try {
+      const { default: apiService } = await import('../services/api');
+      const payload = {
+        code: formData.code.toUpperCase(),
+        name: formData.name,
+        description: formData.description,
+        type: formData.type === 'fixed' ? 'fixed_amount' : 'percentage',
+        value: parseFloat(formData.value),
+        minimum_amount: parseFloat(formData.minOrderValue) || 0,
+        maximum_discount: parseFloat(formData.maxDiscount) || null,
+        usage_limit: parseInt(formData.usageLimit) || null,
+        valid_from: new Date(formData.startDate).toISOString().slice(0, 19).replace('T', ' '),
+        valid_until: new Date(formData.endDate).toISOString().slice(0, 19).replace('T', ' '),
+        status: formData.isActive ? 'active' : 'inactive',
+      };
+      if (editingCoupon) {
+        await apiService.updateCoupon(editingCoupon.id, payload);
+      } else {
+        await apiService.createCoupon(payload);
       }
-      updatedCoupons = [couponData, ...coupons];
+      setShowModal(false);
+      setEditingCoupon(null);
+      resetForm();
+      loadCoupons();
+      alert(editingCoupon ? 'Cập nhật mã giảm giá thành công!' : 'Tạo mã giảm giá thành công!');
+    } catch (error) {
+      alert(error.message || 'Có lỗi xảy ra!');
     }
-
-    setCoupons(updatedCoupons);
-    localStorage.setItem('discountCoupons', JSON.stringify(updatedCoupons));
-    
-    setShowModal(false);
-    setEditingCoupon(null);
-    resetForm();
-    
-    alert(editingCoupon ? 'Cập nhật mã giảm giá thành công!' : 'Tạo mã giảm giá thành công!');
   };
 
   const handleEdit = (coupon) => {
@@ -137,20 +148,26 @@ const CouponManagement = () => {
     setShowModal(true);
   };
 
-  const handleDelete = (couponId) => {
+  const handleDelete = async (couponId) => {
     if (confirm('Bạn có chắc muốn xóa mã giảm giá này?')) {
-      const updatedCoupons = coupons.filter(coupon => coupon.id !== couponId);
-      setCoupons(updatedCoupons);
-      localStorage.setItem('discountCoupons', JSON.stringify(updatedCoupons));
+      try {
+        const { default: apiService } = await import('../services/api');
+        await apiService.deleteCoupon(couponId);
+        loadCoupons();
+      } catch (error) {
+        alert(error.message || 'Có lỗi khi xóa!');
+      }
     }
   };
 
-  const toggleStatus = (couponId) => {
-    const updatedCoupons = coupons.map(coupon =>
-      coupon.id === couponId ? { ...coupon, isActive: !coupon.isActive } : coupon
-    );
-    setCoupons(updatedCoupons);
-    localStorage.setItem('discountCoupons', JSON.stringify(updatedCoupons));
+  const toggleStatus = async (coupon) => {
+    try {
+      const { default: apiService } = await import('../services/api');
+      await apiService.updateCoupon(coupon.id, { status: coupon.isActive ? 'inactive' : 'active' });
+      loadCoupons();
+    } catch (error) {
+      alert(error.message || 'Có lỗi khi cập nhật trạng thái!');
+    }
   };
 
   const resetForm = () => {
@@ -664,7 +681,7 @@ const CouponManagement = () => {
                             </button>
                             <button
                               style={buttonStyle(coupon.isActive ? 'warning' : 'success')}
-                              onClick={() => toggleStatus(coupon.id)}
+                              onClick={() => toggleStatus(coupon)}
                             >
                               {coupon.isActive ? '⏸️ Dừng' : '▶️ Kích hoạt'}
                             </button>

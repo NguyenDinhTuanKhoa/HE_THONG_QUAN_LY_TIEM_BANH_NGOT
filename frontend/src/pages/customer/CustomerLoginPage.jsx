@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import CustomerHeader from '../../components/customer/Header';
+import apiService from '../../services/api';
 
 const CustomerLoginPage = () => {
   const navigate = useNavigate();
@@ -16,16 +17,29 @@ const CustomerLoginPage = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Kiểm tra nếu đã đăng nhập thì chuyển hướng về trang chủ
+  // Nếu đã đăng nhập rồi thì tự chuyển hướng (admin/nhân viên → dashboard, khách → trang chủ)
   useEffect(() => {
+    const userRaw = localStorage.getItem('user');
+    if (userRaw) {
+      try {
+        const user = JSON.parse(userRaw);
+        const target = user.role === 'staff' ? '/admin/dashboard/orders' : '/admin/dashboard';
+        navigate(location.state?.from?.pathname || target, { replace: true });
+        return;
+      } catch {
+        localStorage.removeItem('user');
+      }
+    }
+
     const customer = localStorage.getItem('customer');
     if (customer) {
       try {
-        JSON.parse(customer); // Kiểm tra dữ liệu hợp lệ
-        const from = location.state?.from?.pathname || '/';
-        navigate(from, { replace: true });
-      } catch (error) {
+        JSON.parse(customer);
+        navigate(location.state?.from?.pathname || '/', { replace: true });
+      } catch {
         localStorage.removeItem('customer');
       }
     }
@@ -85,124 +99,70 @@ const CustomerLoginPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Trang đích cho admin/nhân viên dựa trên vai trò
+  const getAdminRedirect = (role) => {
+    switch (role) {
+      case 'staff':
+        return '/admin/dashboard/orders'; // Nhân viên → quản lý đơn hàng
+      case 'admin':
+      case 'manager':
+      default:
+        return '/admin/dashboard';
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
-    
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      if (isLogin) {
-        // Lấy danh sách tài khoản từ localStorage
-        const savedAccounts = JSON.parse(localStorage.getItem('customerAccounts') || '{}');
-
-        // Tài khoản demo mặc định với ngày tham gia
-        const now = new Date();
-        const defaultCustomers = {
-          'customer1@email.com': {
-            password: '123456',
-            name: 'Nguyễn Văn A',
-            phone: '0901234567',
-            joinDate: new Date(now.getFullYear(), now.getMonth() - 2, 15).toISOString()
-          },
-          'customer2@email.com': {
-            password: '123456',
-            name: 'Trần Thị B',
-            phone: '0912345678',
-            joinDate: new Date(now.getFullYear(), now.getMonth() - 1, 8).toISOString()
-          },
-          'customer3@email.com': {
-            password: '123456',
-            name: 'Lê Văn C',
-            phone: '0923456789',
-            joinDate: new Date(now.getFullYear(), now.getMonth(), 3).toISOString()
-          }
-        };
-
-        // Kết hợp tài khoản demo và tài khoản đã đăng ký
-        const allCustomers = { ...defaultCustomers, ...savedAccounts };
-
-        const customer = allCustomers[formData.email];
-        if (customer && customer.password === formData.password) {
-          const customerData = {
-            id: Date.now(),
-            email: formData.email,
-            fullName: customer.name,
-            phone: customer.phone
-          };
-          localStorage.setItem('customer', JSON.stringify(customerData));
-          alert('Đăng nhập thành công!');
-
-          // Chuyển hướng về trang trước đó hoặc trang chủ
-          const from = location.state?.from?.pathname || '/';
-          navigate(from, { replace: true });
-        } else {
-          alert('Email hoặc mật khẩu không đúng!');
-          return;
-        }
-      } else {
-        // Đăng ký tài khoản mới
-        const savedAccounts = JSON.parse(localStorage.getItem('customerAccounts') || '{}');
-
-        // Kiểm tra email đã tồn tại chưa
-        const now = new Date();
-        const defaultCustomers = {
-          'customer1@email.com': {
-            password: '123456',
-            name: 'Nguyễn Văn A',
-            phone: '0901234567',
-            joinDate: new Date(now.getFullYear(), now.getMonth() - 2, 15).toISOString()
-          },
-          'customer2@email.com': {
-            password: '123456',
-            name: 'Trần Thị B',
-            phone: '0912345678',
-            joinDate: new Date(now.getFullYear(), now.getMonth() - 1, 8).toISOString()
-          },
-          'customer3@email.com': {
-            password: '123456',
-            name: 'Lê Văn C',
-            phone: '0923456789',
-            joinDate: new Date(now.getFullYear(), now.getMonth(), 3).toISOString()
-          }
-        };
-        const allCustomers = { ...defaultCustomers, ...savedAccounts };
-
-        if (allCustomers[formData.email]) {
-          alert('Email này đã được đăng ký! Vui lòng sử dụng email khác.');
-          return;
-        }
-
-        // Lưu tài khoản mới
-        savedAccounts[formData.email] = {
-          password: formData.password,
-          name: formData.fullName,
-          phone: formData.phone,
-          joinDate: new Date().toISOString() // Lưu ngày tham gia thực tế
-        };
-
-        localStorage.setItem('customerAccounts', JSON.stringify(savedAccounts));
-
-        // Tự động đăng nhập sau khi đăng ký thành công
-        const customerData = {
-          id: Date.now(),
+      // ===== ĐĂNG KÝ: luôn là khách hàng =====
+      if (!isLogin) {
+        const response = await apiService.customerRegister({
           email: formData.email,
+          password: formData.password,
           fullName: formData.fullName,
-          phone: formData.phone
-        };
-        localStorage.setItem('customer', JSON.stringify(customerData));
-        alert('Đăng ký thành công!');
-
-        // Chuyển hướng về trang trước đó hoặc trang chủ
+          phone: formData.phone,
+        });
+        localStorage.setItem('customer', JSON.stringify({ ...response.customer, token: response.token }));
+        alert(response.message || 'Đăng ký thành công!');
         const from = location.state?.from?.pathname || '/';
         navigate(from, { replace: true });
+        return;
       }
+
+      // ===== ĐĂNG NHẬP: hệ thống tự nhận diện loại tài khoản =====
+      // 1) Thử tài khoản admin/nhân viên (bảng accounts)
+      try {
+        const adminRes = await apiService.login({
+          username: formData.email, // backend chấp nhận cả username lẫn email
+          password: formData.password,
+        });
+        // Đăng nhập admin/nhân viên thành công
+        localStorage.removeItem('customer'); // tránh lẫn phiên khách hàng
+        localStorage.setItem('user', JSON.stringify({ ...adminRes.user, token: adminRes.token }));
+        alert('Đăng nhập thành công!');
+        navigate(getAdminRedirect(adminRes.user.role), { replace: true });
+        return;
+      } catch (adminErr) {
+        // Không phải tài khoản admin → thử tiếp khách hàng
+      }
+
+      // 2) Thử tài khoản khách hàng (bảng customers)
+      const custRes = await apiService.customerLogin({
+        email: formData.email,
+        password: formData.password,
+      });
+      localStorage.removeItem('user'); // tránh lẫn phiên admin
+      localStorage.setItem('customer', JSON.stringify({ ...custRes.customer, token: custRes.token }));
+      alert('Đăng nhập thành công!');
+      const from = location.state?.from?.pathname || '/';
+      navigate(from, { replace: true });
     } catch (error) {
-      alert('Có lỗi xảy ra. Vui lòng thử lại!');
+      alert(error.message || 'Email hoặc mật khẩu không đúng!');
     } finally {
       setIsLoading(false);
     }
@@ -418,26 +378,80 @@ const CustomerLoginPage = () => {
 
             <div style={inputGroupStyle}>
               <label style={labelStyle}>Mật khẩu *</label>
-              <input
-                type="password"
-                style={inputStyle(errors.password)}
-                value={formData.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                placeholder="Nhập mật khẩu"
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  style={{ ...inputStyle(errors.password), paddingRight: '44px' }}
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  placeholder="Nhập mật khẩu"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  style={{
+                    position: 'absolute', right: '12px', top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    padding: '4px', color: '#9ca3af', lineHeight: 1,
+                  }}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                >
+                  {showPassword ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
               {errors.password && <div style={errorStyle}>{errors.password}</div>}
             </div>
 
             {!isLogin && (
               <div style={inputGroupStyle}>
                 <label style={labelStyle}>Xác nhận mật khẩu *</label>
-                <input
-                  type="password"
-                  style={inputStyle(errors.confirmPassword)}
-                  value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                  placeholder="Nhập lại mật khẩu"
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    style={{ ...inputStyle(errors.confirmPassword), paddingRight: '44px' }}
+                    value={formData.confirmPassword}
+                    onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                    placeholder="Nhập lại mật khẩu"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(v => !v)}
+                    style={{
+                      position: 'absolute', right: '12px', top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      padding: '4px', color: '#9ca3af', lineHeight: 1,
+                    }}
+                    tabIndex={-1}
+                    aria-label={showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    {showConfirmPassword ? (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
                 {errors.confirmPassword && <div style={errorStyle}>{errors.confirmPassword}</div>}
               </div>
             )}

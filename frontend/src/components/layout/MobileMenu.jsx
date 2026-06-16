@@ -89,7 +89,7 @@ const MobileMenu = ({ isOpen, onClose }) => {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
-    navigate('/admin/login');
+    navigate('/login');
     onClose();
   };
 
@@ -297,6 +297,14 @@ const MobileMenu = ({ isOpen, onClose }) => {
                 {user.role === 'admin' ? 'Quản trị viên' : 'Nhân viên'}
               </div>
             </div>
+            <button
+              style={{ ...logoutButtonStyle, marginBottom: '8px' }}
+              onClick={() => { navigate('/'); onClose(); }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.3)'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+            >
+              🏠 Về trang chủ
+            </button>
             <button
               style={logoutButtonStyle}
               onClick={handleLogout}

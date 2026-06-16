@@ -28,7 +28,7 @@ const CheckoutPage = () => {
     // Kiểm tra đăng nhập và giỏ hàng
     const customer = localStorage.getItem('customer');
     if (!customer) {
-      navigate('/customer/login');
+      navigate('/login');
       return;
     }
 
@@ -149,49 +149,47 @@ const CheckoutPage = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-  const handleSubmitOrder = () => {
-    if (validateStep(currentStep)) {
-      try {
-        // Tạo đơn hàng mới
-        const newOrder = {
-          id: 'ORD' + Date.now(),
-          customerEmail: orderData.customerInfo.email,
-          orderDate: new Date().toISOString(),
-          status: 'pending',
-          items: cartItems.map(item => ({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            image: item.image
-          })),
-          subtotal: subtotal,
-          shippingFee: shippingFee,
-          total: total,
-          shippingAddress: {
-            fullName: orderData.customerInfo.fullName,
-            phone: orderData.customerInfo.phone,
-            address: `${orderData.shippingAddress.address}, ${orderData.shippingAddress.ward}, ${orderData.shippingAddress.city}`,
-            note: orderData.shippingAddress.note
-          },
-          paymentMethod: orderData.paymentMethod,
-          deliveryMethod: orderData.deliveryMethod
-        };
+  const handleSubmitOrder = async () => {
+    if (!validateStep(currentStep)) return;
+    try {
+      const apiService = (await import('../../services/api')).default;
+      const fullAddress = [
+        orderData.shippingAddress.address,
+        orderData.shippingAddress.ward,
+        orderData.shippingAddress.city,
+      ].filter(Boolean).join(', ');
 
-        // Lưu đơn hàng vào localStorage
-        const existingOrders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-        existingOrders.push(newOrder);
-        localStorage.setItem('customerOrders', JSON.stringify(existingOrders));
+      const payload = {
+        customer_name: orderData.customerInfo.fullName,
+        customer_email: orderData.customerInfo.email,
+        customer_phone: orderData.customerInfo.phone,
+        customer_address: fullAddress,
+        delivery_notes: orderData.shippingAddress.note,
+        subtotal,
+        tax_amount: 0,
+        discount_amount: discountAmount || 0,
+        shipping_amount: shippingFee,
+        total_amount: total,
+        payment_method: orderData.paymentMethod === 'bank' ? 'bank_transfer' :
+                        orderData.paymentMethod === 'momo' ? 'e_wallet' : 'cash',
+        delivery_method: orderData.deliveryMethod === 'pickup' ? 'pickup' : 'delivery',
+        coupon_code: appliedCoupon?.code || null,
+        notes: orderData.notes || null,
+        items: cartItems.map(item => ({
+          product_id: item.id,
+          product_name: item.name,
+          quantity: item.quantity,
+          unit_price: item.price,
+        })),
+      };
 
-        // Xóa giỏ hàng
-        clearCart();
-
-        alert('Đặt hàng thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.');
-        navigate('/orders');
-      } catch (error) {
-        console.error('Error submitting order:', error);
-        alert('Có lỗi xảy ra khi đặt hàng. Vui lòng thử lại!');
-      }
+      await apiService.createOrder(payload);
+      clearCart();
+      alert('Đặt hàng thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.');
+      navigate('/orders');
+    } catch (error) {
+      console.error('Error submitting order:', error);
+      alert(error.message || 'Có lỗi xảy ra khi đặt hàng. Vui lòng thử lại!');
     }
   };
 

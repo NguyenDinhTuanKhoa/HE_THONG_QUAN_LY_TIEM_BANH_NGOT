@@ -9,6 +9,7 @@ const CustomerHeader = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const [customer, setCustomer] = useState(null);
+  const [adminUser, setAdminUser] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [websiteSettings, setWebsiteSettings] = useState({
     siteName: 'Sweet Bakery',
@@ -42,8 +43,17 @@ const CustomerHeader = () => {
     if (customerData) {
       try {
         setCustomer(JSON.parse(customerData));
-      } catch (error) {
+      } catch {
         localStorage.removeItem('customer');
+      }
+    }
+
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        setAdminUser(JSON.parse(userData));
+      } catch {
+        localStorage.removeItem('user');
       }
     }
   }, []);
@@ -53,6 +63,13 @@ const CustomerHeader = () => {
     setCustomer(null);
     setShowUserMenu(false);
     navigate('/');
+  };
+
+  const handleAdminLogout = () => {
+    localStorage.removeItem('user');
+    setAdminUser(null);
+    setShowUserMenu(false);
+    navigate('/login');
   };
 
   // Close user menu when clicking outside
@@ -418,50 +435,73 @@ const CustomerHeader = () => {
 
                   <button
                     style={userMenuItemStyle}
-                    onClick={() => {
-                      navigate('/profile');
-                      setShowUserMenu(false);
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#f9fafb';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = 'transparent';
-                    }}
+                    onClick={() => { navigate('/profile'); setShowUserMenu(false); }}
+                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#f9fafb'; }}
+                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; }}
                   >
                     👤 Thông tin cá nhân
                   </button>
 
                   <button
                     style={userMenuItemStyle}
-                    onClick={() => {
-                      navigate('/orders');
-                      setShowUserMenu(false);
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#f9fafb';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = 'transparent';
-                    }}
+                    onClick={() => { navigate('/orders'); setShowUserMenu(false); }}
+                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#f9fafb'; }}
+                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; }}
                   >
                     📋 Đơn hàng của tôi
                   </button>
 
                   <button
-                    style={{
-                      ...userMenuItemStyle,
-                      borderTop: '1px solid #f3f4f6',
-                      marginTop: '4px',
-                      color: '#ef4444',
-                    }}
+                    style={{ ...userMenuItemStyle, borderTop: '1px solid #f3f4f6', marginTop: '4px', color: '#ef4444' }}
                     onClick={handleLogout}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#fef2f2';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = 'transparent';
-                    }}
+                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#fef2f2'; }}
+                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; }}
+                  >
+                    🚪 Đăng xuất
+                  </button>
+                </div>
+              </div>
+            ) : adminUser ? (
+              <div className="user-menu-container" style={{ position: 'relative' }}>
+                <button
+                  style={userButtonStyle}
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  onMouseEnter={(e) => {
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                >
+                  <span>🛡️</span>
+                  <span>{adminUser.username}</span>
+                  <span style={{ fontSize: '10px' }}>▼</span>
+                </button>
+
+                <div style={userMenuStyle}>
+                  <div style={userInfoStyle}>
+                    <div style={userNameStyle}>{adminUser.username}</div>
+                    <div style={userEmailStyle}>
+                      {adminUser.role === 'admin' ? 'Quản trị viên' : adminUser.role === 'manager' ? 'Quản lý' : 'Nhân viên'}
+                    </div>
+                  </div>
+
+                  <button
+                    style={userMenuItemStyle}
+                    onClick={() => { navigate('/admin/dashboard'); setShowUserMenu(false); }}
+                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#f9fafb'; }}
+                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; }}
+                  >
+                    📊 Về trang quản lý
+                  </button>
+
+                  <button
+                    style={{ ...userMenuItemStyle, borderTop: '1px solid #f3f4f6', marginTop: '4px', color: '#ef4444' }}
+                    onClick={handleAdminLogout}
+                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#fef2f2'; }}
+                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; }}
                   >
                     🚪 Đăng xuất
                   </button>
@@ -470,7 +510,7 @@ const CustomerHeader = () => {
             ) : (
               <button
                 style={loginButtonStyle}
-                onClick={() => navigate('/customer/login')}
+                onClick={() => navigate('/login')}
                 onMouseEnter={(e) => {
                   e.target.style.transform = 'translateY(-2px)';
                   e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';

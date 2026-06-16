@@ -59,32 +59,26 @@ const WebsiteSettings = () => {
     loadSettings();
   }, []);
 
-  const loadSettings = () => {
-    const savedSettings = JSON.parse(localStorage.getItem('websiteSettings') || '{}');
-    const savedAboutContent = JSON.parse(localStorage.getItem('aboutContent') || '{}');
-
-    let updatedSettings = { ...settings };
-
-    if (Object.keys(savedSettings).length > 0) {
-      updatedSettings = { ...updatedSettings, ...savedSettings };
+  const loadSettings = async () => {
+    try {
+      const { default: apiService } = await import('../services/api');
+      const res = await apiService.getAllSettings();
+      if (res.data && Object.keys(res.data).length > 0) {
+        setSettings(prev => ({ ...prev, ...res.data }));
+      }
+    } catch {
+      // giữ settings mặc định
     }
-
-    if (Object.keys(savedAboutContent).length > 0) {
-      updatedSettings.aboutContent = savedAboutContent;
-    }
-
-    setSettings(updatedSettings);
   };
 
-  const saveSettings = () => {
-    // Save website settings (excluding aboutContent)
-    const { aboutContent, ...websiteSettings } = settings;
-    localStorage.setItem('websiteSettings', JSON.stringify(websiteSettings));
-
-    // Save aboutContent separately
-    localStorage.setItem('aboutContent', JSON.stringify(aboutContent));
-
-    alert('Cài đặt đã được lưu thành công!');
+  const saveSettings = async () => {
+    try {
+      const { default: apiService } = await import('../services/api');
+      await apiService.updateSettings(settings);
+      alert('Cài đặt đã được lưu thành công!');
+    } catch (error) {
+      alert(error.message || 'Có lỗi khi lưu cài đặt!');
+    }
   };
 
   const handleInputChange = (field, value) => {

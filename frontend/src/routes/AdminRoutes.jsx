@@ -23,7 +23,7 @@ function AdminRoutes() {
   return (
     <Routes>
       {/* Admin Root Redirect */}
-      <Route path="/" element={<Navigate to="/admin/login" replace />} />
+      <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
       
       {/* Admin Dashboard */}
       <Route path="/dashboard" element={

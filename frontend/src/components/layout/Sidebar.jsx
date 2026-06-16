@@ -201,7 +201,7 @@ const Sidebar = ({ isCollapsed, onToggle }) => {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
-    navigate('/');
+    navigate('/login');
   };
 
   const filteredMenuItems = menuItems.filter(item => 
@@ -271,6 +271,15 @@ const Sidebar = ({ isCollapsed, onToggle }) => {
       </nav>
 
       <div style={logoutButtonStyle}>
+        <button
+          style={{ ...logoutStyle, marginBottom: '8px' }}
+          onClick={() => navigate('/')}
+          onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.3)'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+        >
+          <span>🏠</span>
+          {!isCollapsed && <span>Về trang chủ</span>}
+        </button>
         <button
           style={logoutStyle}
           onClick={handleLogout}

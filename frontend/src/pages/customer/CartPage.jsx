@@ -17,22 +17,14 @@ const CartPage = () => {
     loadAvailableCoupons();
   }, []);
 
-  const loadAvailableCoupons = () => {
-    const savedCoupons = JSON.parse(localStorage.getItem('discountCoupons') || '[]');
-    const now = new Date();
-
-    // Filter valid coupons
-    const validCoupons = savedCoupons.filter(coupon => {
-      const startDate = new Date(coupon.startDate);
-      const endDate = new Date(coupon.endDate);
-
-      return coupon.isActive &&
-             now >= startDate &&
-             now <= endDate &&
-             (coupon.usageLimit === 0 || coupon.usedCount < coupon.usageLimit);
-    });
-
-    setAvailableCoupons(validCoupons);
+  const loadAvailableCoupons = async () => {
+    try {
+      const { default: apiService } = await import('../../services/api');
+      const res = await apiService.getCoupons({ status: 'active', limit: 20 });
+      setAvailableCoupons(res.data || []);
+    } catch {
+      setAvailableCoupons([]);
+    }
   };
 
   const formatCurrency = (amount) => {
@@ -44,44 +36,23 @@ const CartPage = () => {
 
   // updateQuantity and removeFromCart are now from CartContext
 
-  const applyPromoCode = () => {
+  const applyPromoCode = async () => {
     if (!promoCode.trim()) {
       alert('Vui lòng nhập mã giảm giá!');
       return;
     }
-
-    const coupon = availableCoupons.find(c => c.code.toUpperCase() === promoCode.toUpperCase());
-
-    if (!coupon) {
-      alert('Mã giảm giá không hợp lệ hoặc đã hết hạn!');
-      return;
+    try {
+      const { default: apiService } = await import('../../services/api');
+      const res = await apiService.validateCoupon(promoCode, subtotal);
+      setAppliedCoupon({ ...res.data, code: res.data.code });
+      setDiscountAmount(res.data.discount_amount);
+      const discountText = res.data.type === 'percentage'
+        ? `${res.data.value}%`
+        : formatCurrency(res.data.value);
+      alert(`Áp dụng mã giảm giá thành công! Giảm ${discountText} = ${formatCurrency(res.data.discount_amount)}`);
+    } catch (error) {
+      alert(error.message || 'Mã giảm giá không hợp lệ!');
     }
-
-    // Check minimum order value
-    if (coupon.minOrderValue > 0 && subtotal < coupon.minOrderValue) {
-      alert(`Đơn hàng tối thiểu ${formatCurrency(coupon.minOrderValue)} để sử dụng mã này!`);
-      return;
-    }
-
-    // Calculate discount
-    let calculatedDiscount = 0;
-    if (coupon.type === 'percentage') {
-      calculatedDiscount = (subtotal * coupon.value) / 100;
-      if (coupon.maxDiscount > 0) {
-        calculatedDiscount = Math.min(calculatedDiscount, coupon.maxDiscount);
-      }
-    } else {
-      calculatedDiscount = coupon.value;
-    }
-
-    setAppliedCoupon(coupon);
-    setDiscountAmount(calculatedDiscount);
-
-    const discountText = coupon.type === 'percentage'
-      ? `${coupon.value}%`
-      : formatCurrency(coupon.value);
-
-    alert(`Áp dụng mã giảm giá thành công! Giảm ${discountText} = ${formatCurrency(calculatedDiscount)}`);
   };
 
   const removeCoupon = () => {

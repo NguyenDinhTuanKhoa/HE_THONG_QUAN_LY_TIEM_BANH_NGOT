@@ -21,41 +21,43 @@ const ContactPage = () => {
   });
 
   useEffect(() => {
-    // Load contact info from admin settings
-    const savedSettings = JSON.parse(localStorage.getItem('websiteSettings') || '{}');
-    if (Object.keys(savedSettings).length > 0) {
-      setContactInfo(prev => ({ ...prev, ...savedSettings }));
-    }
+    const loadSettings = async () => {
+      try {
+        const { default: apiService } = await import('../../services/api');
+        const res = await apiService.getPublicSettings();
+        if (res.data && Object.keys(res.data).length > 0) {
+          setContactInfo(prev => ({ ...prev, ...res.data }));
+        }
+      } catch {
+        // giữ nguyên contactInfo mặc định
+      }
+    };
+    loadSettings();
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    try {
+      const { default: apiService } = await import('../../services/api');
+      // Lấy customer từ localStorage nếu đang đăng nhập
+      const customerRaw = localStorage.getItem('customer');
+      const customer = customerRaw ? JSON.parse(customerRaw) : null;
 
-    // Create message object
-    const newMessage = {
-      id: Date.now(),
-      ...formData,
-      createdAt: new Date().toISOString(),
-      status: 'new', // new, read, replied
-      priority: 'normal' // low, normal, high
-    };
+      await apiService.createMessage({
+        customer_id: customer?.id || null,
+        customer_name: formData.name,
+        customer_email: formData.email,
+        customer_phone: formData.phone || null,
+        subject: formData.subject,
+        message: formData.message,
+        type: 'contact',
+      });
 
-    // Save to localStorage
-    const existingMessages = JSON.parse(localStorage.getItem('customerMessages') || '[]');
-    const updatedMessages = [newMessage, ...existingMessages];
-    localStorage.setItem('customerMessages', JSON.stringify(updatedMessages));
-
-    // Show success message
-    alert('Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi trong thời gian sớm nhất.');
-
-    // Reset form
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      subject: '',
-      message: ''
-    });
+      alert('Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi trong thời gian sớm nhất.');
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+    } catch (error) {
+      alert(error.message || 'Có lỗi xảy ra. Vui lòng thử lại!');
+    }
   };
 
   const containerStyle = {

@@ -31,100 +31,49 @@ const AdminOrderManagement = () => {
     filterOrders();
   }, [searchTerm, statusFilter, orders]);
 
-  const loadOrders = () => {
-    // Load orders from localStorage
-    const customerOrders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-
-    // Add some demo orders if empty
-    if (customerOrders.length === 0) {
-      const demoOrders = [
-        {
-          id: 'ORD001',
-          customerEmail: 'customer1@email.com',
-          orderDate: '2024-01-15T10:30:00Z',
-          status: 'delivered',
-          items: [
-            { id: 1, name: 'Bánh kem dâu tây', price: 250000, quantity: 1, image: 'https://via.placeholder.com/60x60?text=Bánh+kem' },
-            { id: 2, name: 'Cupcake chocolate', price: 45000, quantity: 2, image: 'https://via.placeholder.com/60x60?text=Cupcake' }
-          ],
-          subtotal: 340000,
-          shippingFee: 30000,
-          total: 370000,
-          shippingAddress: {
-            fullName: 'Nguyễn Văn A',
-            phone: '0123456789',
-            address: '123 Đường ABC, Phường XYZ, Quận 1, TP.HCM'
-          },
-          paymentMethod: 'cod',
-          deliveryMethod: 'home_delivery'
+  const loadOrders = async () => {
+    try {
+      const { default: apiService } = await import('../services/api');
+      const res = await apiService.getOrders({ limit: 200 });
+      const mapped = (res.data || []).map(o => ({
+        id: o.id,
+        orderNumber: o.order_number,
+        customerEmail: o.customer_email,
+        orderDate: o.created_at,
+        status: o.status,
+        items: (o.items || []).map(i => ({
+          id: i.product_id,
+          name: i.product_name,
+          price: i.unit_price,
+          quantity: i.quantity,
+          image: i.product_image,
+        })),
+        subtotal: Number(o.subtotal || 0),
+        shippingFee: Number(o.shipping_amount || 0),
+        total: Number(o.total_amount || 0),
+        shippingAddress: {
+          fullName: o.customer_name,
+          phone: o.customer_phone,
+          address: o.customer_address,
         },
-        {
-          id: 'ORD002',
-          customerEmail: 'customer2@email.com',
-          orderDate: '2024-01-16T14:20:00Z',
-          status: 'processing',
-          items: [
-            { id: 3, name: 'Bánh tiramisu', price: 180000, quantity: 1, image: 'https://via.placeholder.com/60x60?text=Tiramisu' }
-          ],
-          subtotal: 180000,
-          shippingFee: 50000,
-          total: 230000,
-          shippingAddress: {
-            fullName: 'Trần Thị B',
-            phone: '0987654321',
-            address: '456 Đường DEF, Phường ABC, Quận 2, TP.HCM'
-          },
-          paymentMethod: 'cod',
-          deliveryMethod: 'express_delivery'
-        },
-        {
-          id: 'ORD003',
-          customerEmail: 'customer3@email.com',
-          orderDate: new Date().toISOString(),
-          status: 'pending',
-          items: [
-            { id: 4, name: 'Bánh croissant', price: 35000, quantity: 3, image: 'https://via.placeholder.com/60x60?text=Croissant' },
-            { id: 5, name: 'Bánh macaron', price: 75000, quantity: 1, image: 'https://via.placeholder.com/60x60?text=Macaron' }
-          ],
-          subtotal: 180000,
-          shippingFee: 0,
-          total: 180000,
-          shippingAddress: {
-            fullName: 'Lê Văn C',
-            phone: '0912345678',
-            address: '789 Đường GHI, Phường DEF, Quận 3, TP.HCM'
-          },
-          paymentMethod: 'cod',
-          deliveryMethod: 'store_pickup'
-        }
-      ];
+        paymentMethod: o.payment_method,
+        deliveryMethod: o.delivery_method,
+        item_count: o.item_count,
+      }));
+      setOrders(mapped);
 
-      // Save demo orders
-      localStorage.setItem('customerOrders', JSON.stringify(demoOrders));
-      setOrders(demoOrders);
-    } else {
-      setOrders(customerOrders);
-    }
-
-    // Calculate stats
-    const allOrders = customerOrders.length > 0 ? customerOrders : [];
-    const today = new Date().toDateString();
-    const todayOrders = allOrders.filter(order =>
-      new Date(order.orderDate).toDateString() === today
-    ).length;
-
-    const statusCounts = {
-      total: allOrders.length,
-      pending: allOrders.filter(order => order.status === 'pending').length,
-      processing: allOrders.filter(order => order.status === 'processing').length,
-      shipping: allOrders.filter(order => order.status === 'shipping').length,
-      delivered: allOrders.filter(order => order.status === 'delivered').length,
-      cancelled: allOrders.filter(order => order.status === 'cancelled').length,
-      todayOrders,
-      totalRevenue: allOrders.reduce((sum, order) => sum + order.total, 0)
-    };
-
-    setStats(statusCounts);
+      const today = new Date().toDateString();
+      setStats({
+        total: mapped.length,
+        pending: mapped.filter(o => o.status === 'pending').length,
+        processing: mapped.filter(o => o.status === 'preparing' || o.status === 'confirmed').length,
+        shipping: mapped.filter(o => o.status === 'delivering').length,
+        delivered: mapped.filter(o => o.status === 'delivered').length,
+        cancelled: mapped.filter(o => o.status === 'cancelled').length,
+        todayOrders: mapped.filter(o => new Date(o.orderDate).toDateString() === today).length,
+        totalRevenue: mapped.reduce((s, o) => s + o.total, 0),
+      });
+    } catch { setOrders([]); }
   };
 
   // Load current user để kiểm tra quyền
@@ -145,31 +94,21 @@ const AdminOrderManagement = () => {
   };
 
   // Hàm xóa đơn hàng (chỉ admin)
-  const deleteOrder = (orderId) => {
+  const deleteOrder = async (orderId) => {
     if (!isAdmin()) {
       alert('Chỉ quản trị viên mới có quyền xóa đơn hàng!');
       return;
     }
-
-    if (!confirm('Bạn có chắc chắn muốn XÓA VĨNH VIỄN đơn hàng này?\n\nHành động này không thể hoàn tác!')) {
-      return;
+    if (!confirm('Bạn có chắc chắn muốn XÓA VĨNH VIỄN đơn hàng này?\n\nHành động này không thể hoàn tác!')) return;
+    try {
+      const { default: apiService } = await import('../services/api');
+      await apiService.deleteOrder(orderId);
+      if (selectedOrder?.id === orderId) { setShowModal(false); setSelectedOrder(null); }
+      loadOrders();
+      alert(`Đã xóa đơn hàng #${orderId} thành công!`);
+    } catch (error) {
+      alert(error.message || 'Lỗi khi xóa đơn hàng!');
     }
-
-    // Xóa đơn hàng khỏi danh sách
-    const updatedOrders = orders.filter(order => order.id !== orderId);
-    setOrders(updatedOrders);
-    localStorage.setItem('customerOrders', JSON.stringify(updatedOrders));
-
-    // Đóng modal nếu đang xem đơn hàng bị xóa
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setShowModal(false);
-      setSelectedOrder(null);
-    }
-
-    // Cập nhật thống kê
-    loadOrders();
-
-    alert(`Đã xóa đơn hàng #${orderId} thành công!`);
   };
 
   const filterOrders = () => {
@@ -196,23 +135,16 @@ const AdminOrderManagement = () => {
     setFilteredOrders(filtered);
   };
 
-  const updateOrderStatus = (orderId, newStatus) => {
-    const updatedOrders = orders.map(order =>
-      order.id === orderId ? { ...order, status: newStatus } : order
-    );
-
-    setOrders(updatedOrders);
-    localStorage.setItem('customerOrders', JSON.stringify(updatedOrders));
-
-    // Update selected order if it's the one being changed
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder({ ...selectedOrder, status: newStatus });
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const { default: apiService } = await import('../services/api');
+      await apiService.updateOrder(orderId, { status: newStatus });
+      if (selectedOrder?.id === orderId) setSelectedOrder({ ...selectedOrder, status: newStatus });
+      loadOrders();
+      alert(`Đã cập nhật trạng thái đơn hàng #${orderId} thành "${getStatusLabel(newStatus)}"`);
+    } catch (error) {
+      alert(error.message || 'Lỗi khi cập nhật trạng thái!');
     }
-
-    // Recalculate stats
-    loadOrders();
-
-    alert(`Đã cập nhật trạng thái đơn hàng #${orderId} thành "${getStatusLabel(newStatus)}"`);
   };
 
   const formatCurrency = (amount) => {

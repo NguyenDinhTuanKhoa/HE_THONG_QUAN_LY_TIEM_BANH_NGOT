@@ -9,7 +9,7 @@ const AuthRedirect = () => {
     
     if (!customer) {
       // Nếu chưa đăng nhập, chuyển đến trang login
-      navigate('/customer/login', { replace: true });
+      navigate('/login', { replace: true });
     } else {
       try {
         JSON.parse(customer); // Kiểm tra dữ liệu hợp lệ
@@ -18,7 +18,7 @@ const AuthRedirect = () => {
       } catch (error) {
         // Nếu dữ liệu không hợp lệ, xóa và chuyển đến login
         localStorage.removeItem('customer');
-        navigate('/customer/login', { replace: true });
+        navigate('/login', { replace: true });
       }
     }
   }, [navigate]);

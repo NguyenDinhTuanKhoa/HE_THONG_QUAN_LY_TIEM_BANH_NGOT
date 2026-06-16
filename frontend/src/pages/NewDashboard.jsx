@@ -23,65 +23,34 @@ const NewDashboard = () => {
     loadDashboardData();
   }, []);
 
-  const loadDashboardData = () => {
-    // Load data from localStorage
-    const orders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-    const customers = JSON.parse(localStorage.getItem('customerAccounts') || '{}');
-    
-    // Calculate stats
-    const totalOrders = orders.length;
-    const totalCustomers = Object.keys(customers).length + 3; // +3 for demo accounts
-    const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
-    const pendingOrders = orders.filter(order => order.status === 'pending').length;
-    const completedOrders = orders.filter(order => order.status === 'delivered').length;
-    
-    // Today's revenue
-    const today = new Date().toDateString();
-    const todayRevenue = orders
-      .filter(order => new Date(order.orderDate).toDateString() === today)
-      .reduce((sum, order) => sum + order.total, 0);
+  const loadDashboardData = async () => {
+    try {
+      const { default: apiService } = await import('../services/api');
+      const res = await apiService.getDashboardStats();
+      const d = res.data;
 
-    // Monthly revenue
-    const currentMonth = new Date().getMonth();
-    const monthlyRevenue = orders
-      .filter(order => new Date(order.orderDate).getMonth() === currentMonth)
-      .reduce((sum, order) => sum + order.total, 0);
+      setStats({
+        totalProducts: Number(d.products?.total_products || 0),
+        totalOrders: Number(d.orders?.total_orders || 0),
+        totalRevenue: Number(d.orders?.total_revenue || 0),
+        totalCustomers: Number(d.customers?.total_customers || 0),
+        pendingOrders: Number(d.orders?.pending_orders || 0),
+        completedOrders: Number(d.orders?.delivered_orders || 0),
+        todayRevenue: Number(d.orders?.revenue_today || 0),
+        monthlyRevenue: Number(d.orders?.revenue_this_month || 0),
+      });
 
-    setStats({
-      totalProducts: 12, // Mock data
-      totalOrders,
-      totalRevenue,
-      totalCustomers,
-      pendingOrders,
-      completedOrders,
-      todayRevenue,
-      monthlyRevenue
-    });
+      setRecentOrders(d.recent_orders || []);
+      setTopProducts(d.top_products || []);
 
-    // Recent orders (last 5)
-    const recent = orders
-      .sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate))
-      .slice(0, 5);
-    setRecentOrders(recent);
-
-    // Mock top products
-    setTopProducts([
-      { name: 'Bánh kem dâu tây', sold: 45, revenue: 11250000 },
-      { name: 'Cupcake chocolate', sold: 38, revenue: 1710000 },
-      { name: 'Bánh tiramisu', sold: 32, revenue: 5760000 },
-      { name: 'Bánh croissant', sold: 28, revenue: 980000 },
-      { name: 'Bánh macaron', sold: 25, revenue: 1875000 }
-    ]);
-
-    // Mock revenue chart data
-    setRevenueChart([
-      { month: 'T1', revenue: 15000000 },
-      { month: 'T2', revenue: 18000000 },
-      { month: 'T3', revenue: 22000000 },
-      { month: 'T4', revenue: 19000000 },
-      { month: 'T5', revenue: 25000000 },
-      { month: 'T6', revenue: 28000000 }
-    ]);
+      const monthNames = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
+      setRevenueChart((d.revenue_chart || []).map(r => ({
+        month: monthNames[(parseInt(r.month?.split('-')[1] || 1) - 1)] || r.month,
+        revenue: Number(r.revenue || 0),
+      })));
+    } catch (error) {
+      console.error('Error loading dashboard:', error);
+    }
   };
 
   const formatCurrency = (amount) => {
