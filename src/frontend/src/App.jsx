@@ -4,7 +4,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 // Route Components
 import AdminRoutes from './routes/AdminRoutes';
 import CustomerRoutes from './routes/CustomerRoutes';
-import DebugRoutes from './routes/DebugRoutes';
 
 // Pages
 import CustomerLoginPage from './pages/customer/CustomerLoginPage';
@@ -22,11 +21,7 @@ function App() {
       {/* Admin Routes */}
       <Route path="/admin/*" element={<AdminRoutes />} />
       <Route path="/admin/login" element={<LoginForm />} />
-      
-      {/* Debug Routes */}
-      <Route path="/debug/*" element={<DebugRoutes />} />
-      <Route path="/test-delivery" element={<DebugRoutes />} />
-      
+
       {/* Legacy redirects */}
       <Route path="/login" element={<Navigate to="/admin/login" replace />} />
       <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
